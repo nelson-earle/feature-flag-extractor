@@ -1,6 +1,9 @@
 # NPM
 node_modules
 
+# Cargo
+/target
+
 # Environment
 .env
 .env.*
