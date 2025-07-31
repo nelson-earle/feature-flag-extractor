@@ -1,0 +1,12 @@
+{
+    "name": "myqueue-sourcegraph",
+    "description": "",
+    "version": "0.1.0",
+    "scripts": {
+        "scip:get-cli": "./scripts/get-scip-cli.sh",
+        "scip:print-json": "./bin/scip/scip print --json index.scip"
+    },
+    "devDependencies": {
+        "@sourcegraph/scip-typescript": "^0.3.15"
+    }
+}

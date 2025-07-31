@@ -1,0 +1,32 @@
+networks:
+  sg:
+    name: sg
+    driver: bridge
+
+services:
+  # docker run --rm --name=sg-server -p 7080:7080 -p 3370:3370 -v ~/.sourcegraph/config:/etc/sourcegraph -v ~/.sourcegraph/data:/var/opt/sourcegraph --network=sg sourcegraph/server:6.4.1203
+  sg-server:
+    image: sourcegraph/server:6.4.1203
+    container_name: sg-server
+    volumes:
+      - ~/.sourcegraph/config:/etc/sourcegraph
+      - ~/.sourcegraph/data:/var/opt/sourcegraph
+    networks:
+      - sg
+    ports:
+      - '7080:7080'
+      - '3370:3370'
+    restart: unless-stopped
+
+  # docker run --rm --name=sg-cli -p 3434:3434 -v /opt/code/work/myqueue:/repos/myqueue --network=sg sourcegraph/src-cli:6.4 serve-git /repos
+  sg-cli:
+    image: sourcegraph/src-cli:6.4
+    container_name: sg-cli
+    command: ['serve-git', '/repos']
+    volumes:
+      - /opt/code/work/myqueue:/repos/myqueue
+    networks:
+      - sg
+    ports:
+      - '3434:3434'
+    restart: unless-stopped

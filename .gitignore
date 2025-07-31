@@ -1,0 +1,15 @@
+# NPM
+node_modules
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Custom scripts cache
+/.cache
+/bin
+
+# Output files
+/index.scip
+/index.json
