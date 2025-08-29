@@ -2,67 +2,79 @@ import ts from 'typescript';
 import path from 'node:path';
 import fs from 'node:fs';
 
+// Command line arguments
 const targetProjectPath = process.argv[2];
+const tsconfigPath = process.argv[3];
 
+// Check if required arguments are provided
 if (!targetProjectPath) {
     console.error('Please provide a path to the target project as the first argument');
     process.exit(1);
 }
 
-const absolutePath = path.resolve(targetProjectPath);
-
-if (!fs.existsSync(absolutePath)) {
-    console.error(`Path does not exist: ${absolutePath}`);
+if (!tsconfigPath) {
+    console.error('Please provide a path to the tsconfig.json file as the second argument');
     process.exit(1);
 }
 
-function findTypeScriptFiles(dir: string): string[] {
-    const files: string[] = [];
+// Resolve paths
+const absolutePath = path.resolve(targetProjectPath);
+const absoluteTsconfigPath = path.resolve(tsconfigPath);
 
-    function traverseDirectory(currentDir: string) {
-        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-
-        for (const entry of entries) {
-            const fullPath = path.join(currentDir, entry.name);
-
-            if (entry.isDirectory() && entry.name !== 'node_modules') {
-                traverseDirectory(fullPath);
-            } else if (
-                entry.isFile() &&
-                entry.name.endsWith('.ts') &&
-                !entry.name.endsWith('.d.ts') &&
-                !entry.name.endsWith('.spec.ts') &&
-                !entry.name.endsWith('.test.ts')
-            ) {
-                files.push(fullPath);
-            }
-        }
-    }
-
-    traverseDirectory(dir);
-    return files;
+// Check if paths exist
+if (!fs.existsSync(absolutePath)) {
+    console.error(`Project path does not exist: ${absolutePath}`);
+    process.exit(1);
 }
 
-const tsFiles = findTypeScriptFiles(absolutePath);
-const compilerOptions: ts.CompilerOptions = {
-    target: ts.ScriptTarget.ES2015,
-    module: ts.ModuleKind.CommonJS
-};
+if (!fs.existsSync(absoluteTsconfigPath)) {
+    console.error(`TSConfig path does not exist: ${absoluteTsconfigPath}`);
+    process.exit(1);
+}
 
-const program = ts.createProgram(tsFiles, compilerOptions);
+// Parse tsconfig.json
+function loadTsConfig(configPath: string): ts.ParsedCommandLine {
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+
+    if (configFile.error) {
+        console.error(`Error reading tsconfig: ${configFile.error.messageText}`);
+        process.exit(1);
+    }
+
+    // Parse the config, handling 'extends' recursively
+    const parsedConfig = ts.parseJsonConfigFileContent(
+        configFile.config,
+        ts.sys,
+        path.dirname(configPath)
+    );
+
+    if (parsedConfig.errors.length > 0) {
+        console.error('Error parsing tsconfig:');
+        for (const error of parsedConfig.errors) {
+            console.error(` - ${error.messageText}`);
+        }
+        process.exit(1);
+    }
+
+    return parsedConfig;
+}
+
+// Load the config
+const tsConfig = loadTsConfig(absoluteTsconfigPath);
+
+// Create the TypeScript program using the tsconfig
+const program = ts.createProgram({ rootNames: tsConfig.fileNames, options: tsConfig.options });
+
 const typeChecker = program.getTypeChecker();
 
 for (const sourceFile of program.getSourceFiles()) {
     if (
+        !sourceFile.fileName.startsWith(absolutePath) ||
         sourceFile.fileName.includes('node_modules') ||
         sourceFile.fileName.endsWith('.d.ts') ||
         sourceFile.fileName.endsWith('.spec.ts') ||
         sourceFile.fileName.endsWith('.test.ts')
     ) {
-        continue;
-    }
-
-    if (!sourceFile.fileName.startsWith(absolutePath)) {
         continue;
     }
 
