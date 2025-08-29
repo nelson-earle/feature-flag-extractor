@@ -93,7 +93,19 @@ for (const sourceFile of program.getSourceFiles()) {
 
                     // Print the location information (file:line:col)
                     const relativePath = path.relative(absolutePath, sourceFile.fileName);
-                    console.log(`${relativePath}:${line + 1}:${character + 1} | ${node.argumentExpression.getText()}`);
+
+                    let flag = '<unknown>';
+                    if (ts.isStringLiteral(node.argumentExpression)) {
+                        flag = node.argumentExpression.getText();
+                    } else {
+                        const keyType = typeChecker.getTypeAtLocation(node.argumentExpression);
+                        const keyTypeString = typeChecker.typeToString(keyType);
+                        if (keyTypeString !== 'string') {
+                            flag = keyTypeString;
+                        }
+                    }
+
+                    console.log(`${relativePath}:${line + 1}:${character + 1} | ${flag}`);
                 }
             }
         }
