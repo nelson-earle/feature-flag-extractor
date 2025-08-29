@@ -3,33 +3,56 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 // Command line arguments
-const targetProjectPath = process.argv[2];
-const tsconfigPath = process.argv[3];
+let targetProjectPath = process.argv[2];
+let tsconfigPath = process.argv[3];
 
 // Check if required arguments are provided
-if (!targetProjectPath) {
+if (targetProjectPath) {
+    targetProjectPath = path.resolve(targetProjectPath);
+} else {
     console.error('Please provide a path to the target project as the first argument');
     process.exit(1);
 }
 
-if (!tsconfigPath) {
-    console.error('Please provide a path to the tsconfig.json file as the second argument');
+// Check if project path exists
+if (!fs.existsSync(targetProjectPath)) {
+    console.error(`Project path does not exist: ${targetProjectPath}`);
     process.exit(1);
 }
 
-// Resolve paths
-const absolutePath = path.resolve(targetProjectPath);
-const absoluteTsconfigPath = path.resolve(tsconfigPath);
+if (tsconfigPath) {
+    // Resolve tsconfig path if provided
+    tsconfigPath = path.resolve(tsconfigPath);
 
-// Check if paths exist
-if (!fs.existsSync(absolutePath)) {
-    console.error(`Project path does not exist: ${absolutePath}`);
-    process.exit(1);
-}
+    // Check if tsconfig path exists
+    if (!fs.existsSync(tsconfigPath)) {
+        console.error(`TSConfig path does not exist: ${tsconfigPath}`);
+        process.exit(1);
+    }
+} else {
+    // TSconfig path not provided, search for one in the project directory
+    const possibleTsConfigs = [
+        'tsconfig.app.prod.json',
+        'tsconfig.app.json',
+        'tsconfig.lib.prod.json',
+        'tsconfig.lib.json',
+        'tsconfig.json'
+    ];
 
-if (!fs.existsSync(absoluteTsconfigPath)) {
-    console.error(`TSConfig path does not exist: ${absoluteTsconfigPath}`);
-    process.exit(1);
+    for (const configName of possibleTsConfigs) {
+        const potentialPath = path.join(targetProjectPath, configName);
+        if (fs.existsSync(potentialPath)) {
+            tsconfigPath = potentialPath;
+            console.log(`Found tsconfig: ${tsconfigPath}`);
+            break;
+        }
+    }
+
+    if (!tsconfigPath) {
+        console.error('Could not find a tsconfig.json file in the project directory');
+        console.error('Please provide a path to the tsconfig.json file as the second argument');
+        process.exit(1);
+    }
 }
 
 // Parse tsconfig.json
@@ -60,7 +83,7 @@ function loadTsConfig(configPath: string): ts.ParsedCommandLine {
 }
 
 // Load the config
-const tsConfig = loadTsConfig(absoluteTsconfigPath);
+const tsConfig = loadTsConfig(tsconfigPath);
 
 // Create the TypeScript program using the tsconfig
 const program = ts.createProgram({ rootNames: tsConfig.fileNames, options: tsConfig.options });
@@ -69,7 +92,7 @@ const typeChecker = program.getTypeChecker();
 
 for (const sourceFile of program.getSourceFiles()) {
     if (
-        !sourceFile.fileName.startsWith(absolutePath) ||
+        !sourceFile.fileName.startsWith(targetProjectPath) ||
         sourceFile.fileName.includes('node_modules') ||
         sourceFile.fileName.endsWith('.d.ts') ||
         sourceFile.fileName.endsWith('.spec.ts') ||
@@ -168,7 +191,7 @@ for (const sourceFile of program.getSourceFiles()) {
 
             if (flag) {
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                const relativePath = path.relative(absolutePath, sourceFile.fileName);
+                const relativePath = path.relative(targetProjectPath, sourceFile.fileName);
                 console.log(`${relativePath}:${line + 1}:${character + 1} | ${flag}`);
             }
         }
