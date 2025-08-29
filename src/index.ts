@@ -68,12 +68,26 @@ for (const sourceFile of program.getSourceFiles()) {
 
     function visit(node: ts.Node) {
         if (ts.isElementAccessExpression(node)) {
-            // Get line and column information
-            const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            const receiverIsValid = (
+                ts.isPropertyAccessExpression(node.expression) ||
+                ts.isIdentifier(node.expression) ||
+                ts.isCallExpression(node.expression)
+            );
 
-            // Print the location information (file:line:col)
-            const relativePath = path.relative(absolutePath, sourceFile.fileName);
-            console.log(`${relativePath}:${line + 1}:${character + 1}`);
+            const keyIsValid = (
+                ts.isStringLiteral(node.argumentExpression) ||
+                ts.isPropertyAccessExpression(node.argumentExpression) ||
+                ts.isIdentifier(node.argumentExpression)
+            );
+
+            if (receiverIsValid && keyIsValid) {
+                // Get line and column information
+                const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+
+                // Print the location information (file:line:col)
+                const relativePath = path.relative(absolutePath, sourceFile.fileName);
+                console.log(`${relativePath}:${line + 1}:${character + 1} | ${node.getText()}`);
+            }
         }
 
         ts.forEachChild(node, visit);
