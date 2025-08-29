@@ -50,7 +50,7 @@ const compilerOptions: ts.CompilerOptions = {
 };
 
 const program = ts.createProgram(tsFiles, compilerOptions);
-const _typeChecker = program.getTypeChecker();
+const typeChecker = program.getTypeChecker();
 
 for (const sourceFile of program.getSourceFiles()) {
     if (
@@ -81,12 +81,20 @@ for (const sourceFile of program.getSourceFiles()) {
             );
 
             if (receiverIsValid && keyIsValid) {
-                // Get line and column information
-                const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                const expressionType = typeChecker.getTypeAtLocation(node.expression);
+                const expressionTypeString = typeChecker.typeToString(expressionType);
 
-                // Print the location information (file:line:col)
-                const relativePath = path.relative(absolutePath, sourceFile.fileName);
-                console.log(`${relativePath}:${line + 1}:${character + 1} | ${node.getText()}`);
+                const receiverIsLDFlagSet =
+                    expressionTypeString.includes('LDFlagSet') ||
+                    (expressionType.symbol && expressionType.symbol.name === 'LDFlagSet');
+
+                if (receiverIsLDFlagSet) {
+                    const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+
+                    // Print the location information (file:line:col)
+                    const relativePath = path.relative(absolutePath, sourceFile.fileName);
+                    console.log(`${relativePath}:${line + 1}:${character + 1} | ${node.argumentExpression.getText()}`);
+                }
             }
         }
 
