@@ -96,13 +96,37 @@ for (const sourceFile of program.getSourceFiles()) {
 
                     let flag = '<unknown>';
                     if (ts.isStringLiteral(node.argumentExpression)) {
+                        // Direct string literal like `flags['feature']`
                         flag = node.argumentExpression.getText();
                     } else {
+                        // Handle property reads like `flags[FEATURE_FLAG]`
                         const keyType = typeChecker.getTypeAtLocation(node.argumentExpression);
                         const keyTypeString = typeChecker.typeToString(keyType);
-                        if (keyTypeString !== 'string') {
+
+                        if (keyTypeString.startsWith('"')) {
+                            // This is a string literal type, extract the value
                             flag = keyTypeString;
+                        } else if (ts.isIdentifier(node.argumentExpression) || ts.isPropertyAccessExpression(node.argumentExpression)) {
+                            // Try to find the literal value from symbol declaration
+                            const symbol = typeChecker.getSymbolAtLocation(node.argumentExpression);
+                            if (symbol && symbol.declarations && symbol.declarations.length > 0) {
+                                const declaration = symbol.declarations[0];
+                                // Check if it's a variable declaration with initializer
+                                if ((ts.isVariableDeclaration(declaration) || ts.isPropertyDeclaration(declaration)) && declaration.initializer) {
+                                    if (ts.isStringLiteral(declaration.initializer)) {
+                                        flag = declaration.initializer.getText();
+                                    }
+                                }
+                            }
+                        } else if (keyTypeString !== 'string') {
+                            // Neither a string literal or an identifier/property read
+                            flag = keyTypeString;
+                            console.warn(`Found read of 'LDFlagSet' with non-string key: ${keyTypeString}`);
                         }
+                    }
+
+                    if (flag === '<unknown>') {
+                        console.warn(`Unable to get flag ID for 'LDFlagSet' read: ${node.getText()}`);
                     }
 
                     console.log(`${relativePath}:${line + 1}:${character + 1} | ${flag}`);
