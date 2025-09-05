@@ -3,15 +3,12 @@
     "description": "",
     "version": "0.1.0",
     "scripts": {
-        "start": "ts-node src/index.ts",
-        "scip:get-cli": "./scripts/get-scip-cli.sh",
-        "scip:print-json": "./bin/scip/scip print --json index.scip"
+        "start": "ts-node src/index.ts"
     },
     "dependencies": {
         "typescript": "3.8"
     },
     "devDependencies": {
-        "@sourcegraph/scip-typescript": "^0.3.15",
         "ts-node": "^10.9.2"
     }
 }
