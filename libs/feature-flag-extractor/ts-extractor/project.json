@@ -1,0 +1,24 @@
+{
+    "name": "@feature-flag-extractor/ts-extractor",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "projectType": "library",
+    "sourceRoot": "libs/feature-flag-extractor/ts-extractor/src",
+    "tags": [],
+    "targets": {
+        "build": {
+            "executor": "@nx/esbuild:esbuild",
+            "outputs": ["{options.outputPath}"],
+            "options": {
+                "outputPath": "dist/libs/feature-flag-extractor/ts-extractor",
+                "main": "libs/feature-flag-extractor/ts-extractor/src/index.ts",
+                "tsConfig": "libs/feature-flag-extractor/ts-extractor/tsconfig.lib.json"
+            }
+        },
+        "lint": {
+            "executor": "@nx/eslint:lint",
+            "options": {
+                "lintFilePatterns": ["libs/feature-flag-extractor/ts-extractor/**/*.ts"]
+            }
+        }
+    }
+}

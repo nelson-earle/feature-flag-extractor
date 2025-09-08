@@ -1,0 +1,9 @@
+{
+    "builders": {
+        "run": {
+            "implementation": "../../../dist/libs/feature-flag-extractor/feature-flag-extractor/index.js",
+            "schema": "./src/schema.json",
+            "description": "Extract Launch Darkly feature flags from the application templates."
+        }
+    }
+}

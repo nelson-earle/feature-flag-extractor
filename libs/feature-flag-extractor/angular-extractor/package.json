@@ -1,0 +1,6 @@
+{
+    "name": "@feature-flag-extractor/angular-extractor",
+    "version": "0.1.0",
+    "type": "module",
+    "builders": "./builders.json"
+}

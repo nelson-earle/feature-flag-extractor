@@ -1,0 +1,22 @@
+/* To learn more about this file see: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+{
+    "extends": "../../../tsconfig.base.json",
+    "references": [
+        {
+            "path": "./tsconfig.lib.json"
+        }
+    ],
+    "compilerOptions": {
+        "outDir": "../../../dist/out-tsc",
+        "module": "es2022",
+        "moduleResolution": "bundler",
+        "target": "es2022",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "importHelpers": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noPropertyAccessFromIndexSignature": true
+    }
+}

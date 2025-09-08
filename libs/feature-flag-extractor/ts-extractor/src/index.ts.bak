@@ -1,6 +1,6 @@
-import ts from 'typescript';
-import path from 'node:path';
-import fs from 'node:fs';
+import * as ts from 'typescript';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 // Command line arguments
 let targetProjectPath = process.argv[2];
@@ -36,7 +36,7 @@ if (tsconfigPath) {
         'tsconfig.app.json',
         'tsconfig.lib.prod.json',
         'tsconfig.lib.json',
-        'tsconfig.json'
+        'tsconfig.json',
     ];
 
     for (const configName of possibleTsConfigs) {
@@ -106,13 +106,18 @@ for (const sourceFile of program.getSourceFiles()) {
      * @param expression The identifier (e.g. `flagName`) or property (e.g. `this.flagName`).
      * @returns The flag ID or null if the node doesn't match our criteria.
      */
-    function extractDynamicFlag(expression: ts.Identifier | ts.PropertyAccessExpression): string | null {
+    const extractDynamicFlag = (
+        expression: ts.Identifier | ts.PropertyAccessExpression
+    ): string | null => {
         const symbol = typeChecker.getSymbolAtLocation(expression);
 
-        if (symbol && symbol.declarations.length > 0) {
+        if (symbol && symbol.declarations && symbol.declarations.length > 0) {
             const declaration = symbol.declarations[0];
             // Check if it's a variable declaration with initializer
-            if ((ts.isVariableDeclaration(declaration) || ts.isPropertyDeclaration(declaration)) && declaration.initializer) {
+            if (
+                (ts.isVariableDeclaration(declaration) || ts.isPropertyDeclaration(declaration)) &&
+                declaration.initializer
+            ) {
                 if (ts.isStringLiteral(declaration.initializer)) {
                     return declaration.initializer.getText();
                 }
@@ -120,28 +125,26 @@ for (const sourceFile of program.getSourceFiles()) {
         }
 
         return null;
-    }
+    };
 
     /**
      * Extract the flag ID from an element access expression.
      * @param node The element access expression node.
      * @returns The flag ID or null if the node doesn't match our criteria.
      */
-    function extractFlagFromElementAccess(node: ts.ElementAccessExpression): string | null {
+    const extractFlagFromElementAccess = (node: ts.ElementAccessExpression): string | null => {
         // Check receiver (object being accessed)
-        const receiverIsValid = (
+        const receiverIsValid =
             ts.isPropertyAccessExpression(node.expression) ||
             ts.isIdentifier(node.expression) ||
-            ts.isCallExpression(node.expression)
-        );
+            ts.isCallExpression(node.expression);
         if (!receiverIsValid) return null;
 
         // Check key (property being accessed)
-        const keyIsValid = (
+        const keyIsValid =
             ts.isStringLiteral(node.argumentExpression) ||
             ts.isPropertyAccessExpression(node.argumentExpression) ||
-            ts.isIdentifier(node.argumentExpression)
-        );
+            ts.isIdentifier(node.argumentExpression);
         if (!keyIsValid) return null;
 
         // Get the type of the receiver
@@ -169,12 +172,17 @@ for (const sourceFile of program.getSourceFiles()) {
             if (keyTypeString.startsWith('"')) {
                 // Key is a string literal
                 flag = keyTypeString;
-            } else if (ts.isIdentifier(node.argumentExpression) || ts.isPropertyAccessExpression(node.argumentExpression)) {
+            } else if (
+                ts.isIdentifier(node.argumentExpression) ||
+                ts.isPropertyAccessExpression(node.argumentExpression)
+            ) {
                 // Try to find the literal value from symbol declaration
                 flag = extractDynamicFlag(node.argumentExpression);
             } else if (keyTypeString !== 'string') {
                 // Neither a string literal or an identifier/property read
-                console.warn(`Found read of 'LDFlagSet' with key of unsupported type: ${keyTypeString}`);
+                console.warn(
+                    `Found read of 'LDFlagSet' with key of unsupported type: ${keyTypeString}`
+                );
             }
         }
 
@@ -183,21 +191,23 @@ for (const sourceFile of program.getSourceFiles()) {
         }
 
         return flag;
-    }
+    };
 
-    function visit(node: ts.Node) {
+    const visit = (node: ts.Node): void => {
         if (ts.isElementAccessExpression(node)) {
             const flag = extractFlagFromElementAccess(node);
 
             if (flag) {
-                const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+                    node.getStart()
+                );
                 const relativePath = path.relative(targetProjectPath, sourceFile.fileName);
                 console.log(`${relativePath}:${line + 1}:${character + 1} | ${flag}`);
             }
         }
 
         ts.forEachChild(node, visit);
-    }
+    };
 
     ts.forEachChild(sourceFile, visit);
 }

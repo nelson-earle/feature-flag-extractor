@@ -5,3 +5,16 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# Output
+/dist
+/tmp
+
+# NX
+.nx/cache
+.nx/workspace-data
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# Angular
+.angular

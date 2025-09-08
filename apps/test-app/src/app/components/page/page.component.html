@@ -1,0 +1,11 @@
+<p>page works!</p>
+<p>{{ (featureFlags$ | async)?.['flag-a'] }}</p>
+<p>{{ flags()['flag-b'] }}</p>
+<p>{{ flags()?.['flag-c'] }}</p>
+<div [class.active]="flags()['flag-class']"></div>
+<button (click)="onClick(flags()['flag-clicked'])">Button</button>
+
+@let flagsForTable = featureFlags$ | async;
+@if (flagsForTable) {
+    <app-table [featureFlags]="flagsForTable"></app-table>
+}

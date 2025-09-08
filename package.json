@@ -1,14 +1,49 @@
 {
     "name": "angular-feature-flag-extractor",
-    "description": "",
     "version": "0.1.0",
-    "scripts": {
-        "start": "ts-node src/index.ts"
-    },
     "dependencies": {
-        "typescript": "3.8"
+        "@angular-devkit/architect": "^0.1902.15",
+        "@angular-devkit/core": "^19.2.15",
+        "@angular/common": "^19.2.14",
+        "@angular/compiler": "^19.2.9",
+        "@angular/core": "^19.2.14",
+        "@angular/forms": "^19.2.14",
+        "@angular/platform-browser": "^19.2.14",
+        "@angular/router": "^19.2.14",
+        "@nx/devkit": "^21.2.2",
+        "launchdarkly-js-client-sdk": "^3.9.0",
+        "rxjs": "^7.8.2",
+        "typescript": "5.8.3",
+        "zone.js": "~0.15.0"
     },
     "devDependencies": {
-        "ts-node": "^10.9.2"
+        "@angular-devkit/schematics": "^19.2.15",
+        "@angular/build": "^19.2.15",
+        "@angular/cli": "^19.2.15",
+        "@angular/compiler-cli": "^19.2.14",
+        "@angular/language-service": "^19.2.14",
+        "@eslint/js": "^9.8.0",
+        "@nx/angular": "21.2.2",
+        "@nx/esbuild": "21.2.2",
+        "@nx/eslint": "21.2.2",
+        "@nx/eslint-plugin": "21.2.2",
+        "@nx/js": "21.2.2",
+        "@nx/web": "21.2.2",
+        "@schematics/angular": "^19.2.15",
+        "@swc-node/register": "~1.9.1",
+        "@swc/core": "^1.5.7",
+        "@swc/helpers": "~0.5.11",
+        "@types/node": "18.16.9",
+        "@typescript-eslint/utils": "^8.29.0",
+        "angular-eslint": "^19.8.1",
+        "esbuild": "^0.19.2",
+        "eslint": "^9.8.0",
+        "eslint-config-prettier": "^10.0.0",
+        "jsonc-eslint-parser": "^2.1.0",
+        "nx": "21.2.2",
+        "prettier": "^3.6.2",
+        "ts-node": "^10.9.2",
+        "tslib": "^2.3.0",
+        "typescript-eslint": "^8.29.0"
     }
 }

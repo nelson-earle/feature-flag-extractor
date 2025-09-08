@@ -1,0 +1,32 @@
+{
+    "compileOnSave": false,
+    "compilerOptions": {
+        "baseUrl": ".",
+        "rootDir": ".",
+        "sourceMap": true,
+        "declaration": false,
+        "moduleResolution": "node",
+        "experimentalDecorators": true,
+        "importHelpers": true,
+        "target": "es2018",
+        "module": "nodenext",
+        "lib": ["es2020", "dom", "esnext.asynciterable"],
+        "skipLibCheck": true,
+        "skipDefaultLibCheck": true,
+        "typeRoots": ["node_modules/@types"],
+        "types": ["node"],
+        "paths": {
+            "@feature-flag-extractor/angular-extractor": [
+                "libs/feature-flag-extractor/angular-extractor/src/index.ts"
+            ],
+            "@feature-flag-extractor/shared": ["libs/feature-flag-extractor/shared/src/index.ts"],
+            "@feature-flag-extractor/ts-extractor": [
+                "libs/feature-flag-extractor/ts-extractor/src/index.ts"
+            ],
+            "feature-flag-extractor": [
+                "libs/feature-flag-extractor/feature-flag-extractor/src/index.ts"
+            ]
+        }
+    },
+    "exclude": ["node_modules", "tmp"]
+}
