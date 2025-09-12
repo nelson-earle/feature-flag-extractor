@@ -8,6 +8,12 @@
         "enabled": false
     },
     "targetDefaults": {
+        "build": {
+            "dependsOn": ["^build"]
+        },
+        "extract-feature-flags": {
+            "dependsOn": ["^build"]
+        },
         "@angular/build:application": {
             "cache": true,
             "dependsOn": ["^build"],

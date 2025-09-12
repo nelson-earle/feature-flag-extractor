@@ -6,7 +6,7 @@
     "tags": ["type:tool"],
     "targets": {
         "build": {
-            "executor": "@nx/esbuild:esbuild",
+            "executor": "@nx/js:tsc",
             "cache": false,
             "outputs": ["{options.outputPath}"],
             "options": {
