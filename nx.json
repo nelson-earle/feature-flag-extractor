@@ -47,10 +47,29 @@
     },
     "plugins": [
         {
+            "plugin": "@nx/js",
+            "options": {
+                "analyzeSourceFiles": true
+            }
+        },
+        {
             "plugin": "@nx/eslint/plugin",
             "options": {
                 "targetName": "lint"
             }
         }
-    ]
+    ],
+    "namedInputs": {
+        "default": ["{projectRoot}/**/*", "sharedGlobals"],
+        "sharedGlobals": [],
+        "production": [
+            "default",
+            "!{projectRoot}/**/*.spec.[jt]s",
+            "!{projectRoot}/tsconfig.spec.json",
+            "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+            "!{projectRoot}/jest.config.[jt]s",
+            "!{projectRoot}/src/test-setup.[jt]s",
+            "!{projectRoot}/test-setup.[jt]s"
+        ]
+    }
 }
