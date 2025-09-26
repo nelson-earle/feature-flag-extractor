@@ -9,11 +9,11 @@ interface Options extends JsonObject {
 }
 
 export default createBuilder(
-    async (options: Options, _context: BuilderContext): Promise<BuilderOutput> => {
+    async (options: Options, ctx: BuilderContext): Promise<BuilderOutput> => {
         const flagReads: FlagRead[] = [];
 
         try {
-            const tsFlagReads = extractFeatureFlags(options.projectRoot, options.tsConfig);
+            const tsFlagReads = extractFeatureFlags(ctx, options.projectRoot, options.tsConfig);
             flagReads.push(...tsFlagReads);
         } catch (ex) {
             const error = ex instanceof Error ? ex.message : 'An unknown error occurred';

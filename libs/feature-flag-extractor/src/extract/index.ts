@@ -2,6 +2,7 @@ import * as ts from 'typescript';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { extractFeatureFlagsFromTs } from './typescript';
+import { BuilderContext } from '@angular-devkit/architect';
 
 export interface FlagRead {
     filePathRelative: string;
@@ -10,7 +11,11 @@ export interface FlagRead {
     flagId: string;
 }
 
-export function extractFeatureFlags(targetProjectPath: string, tsconfigPath: string): FlagRead[] {
+export function extractFeatureFlags(
+    ctx: BuilderContext,
+    targetProjectPath: string,
+    tsconfigPath: string
+): FlagRead[] {
     // Check if required arguments are provided
     if (targetProjectPath) {
         targetProjectPath = path.resolve(targetProjectPath);
@@ -54,7 +59,15 @@ export function extractFeatureFlags(targetProjectPath: string, tsconfigPath: str
             continue;
         }
 
-        flagReads.push(...extractFeatureFlagsFromTs(targetProjectPath, typeChecker, sourceFile));
+        flagReads.push(
+            ...extractFeatureFlagsFromTs(
+                ctx,
+                targetProjectPath,
+                typeChecker,
+                sourceFile,
+                sourceFile.fileName
+            )
+        );
     }
 
     return flagReads;

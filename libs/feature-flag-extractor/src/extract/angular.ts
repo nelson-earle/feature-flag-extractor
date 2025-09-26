@@ -1,10 +1,10 @@
-import * as ts from 'typescript';
-import * as ng from '@angular/compiler';
+import { BuilderContext } from '@angular-devkit/architect';
 import { FlagRead } from '.';
 
 export function extractFeatureFlagsFromTemplate(
-    targetProjectPath: string,
-    tsconfigPath: string
+    ctx: BuilderContext,
+    templateUrl: string,
+    template: string
 ): FlagRead[] {
     return [];
 }
