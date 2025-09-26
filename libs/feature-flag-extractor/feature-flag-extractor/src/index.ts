@@ -10,7 +10,7 @@ interface Options extends JsonObject {
 }
 
 export default createBuilder(
-    async (options: Options, _context: BuilderContext): Promise<BuilderOutput> => {
+    async (options: Options, context: BuilderContext): Promise<BuilderOutput> => {
         const flagReads: FlagRead[] = [];
 
         try {
@@ -21,27 +21,24 @@ export default createBuilder(
             return { success: false, error };
         }
 
-        console.log('--------------------------------------------------');
         for (const read of flagReads) {
             const line = read.row + 1;
             const char = read.col + 1;
             console.log(`${read.filePathRelative}:${line}:${char} | ${read.flagId}`);
         }
 
-        return { success: true };
+        console.log('----------------------------------------------------------------------');
 
-        // // Run Angular parser
-        // const run = await context.scheduleBuilder(
-        //     '@feature-flag-extractor/angular-extractor:extract-template-feature-flags',
-        //     {}
-        // );
-        //
-        // context.logger.info(`Builder scheduled, waiting for completion...`);
-        //
-        // const output: BuilderOutput | undefined = await run.output.toPromise();
-        // await run.stop();
-        //
-        // return { success: output?.success || false };
+        // Run Angular parser
+        const run = await context.scheduleBuilder(
+            '@feature-flag-extractor/angular-extractor:extract-template-feature-flags',
+            {}
+        );
+
+        const output: BuilderOutput | undefined = await run.output.toPromise();
+        await run.stop();
+
+        return { success: output?.success || false };
     }
 );
 

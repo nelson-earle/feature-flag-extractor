@@ -1,3 +1,4 @@
+import * as ts from 'typescript';
 import * as ng from '@angular/compiler';
 import { BuilderContext, BuilderOutput, createBuilder } from '@angular-devkit/architect';
 import { JsonObject } from '@angular-devkit/core';
@@ -10,15 +11,8 @@ export default createBuilder(
     async (_options: Options, context: BuilderContext): Promise<BuilderOutput> => {
         context.logger.info('TODO: extract template flags');
 
-        // console.log('------------------------------------');
-        // console.log('Feature Flag Extraction Report');
-        // console.log('------------------------------------');
-        // console.log('Project: test-app');
-        // console.log('Found 3 potential feature flags:');
-        // console.log('  - "show-new-ui" in component: AppComponent');
-        // console.log('  - "enable-dark-mode" in component: HeaderComponent');
-        // console.log('  - "beta-feature" in component: DashboardComponent');
-        // console.log('------------------------------------');
+        // const host = ts.createCompilerHost({});
+        const program = ts.createProgram({ rootNames: [], options: {} });
 
         return Promise.resolve({ success: true });
     }
