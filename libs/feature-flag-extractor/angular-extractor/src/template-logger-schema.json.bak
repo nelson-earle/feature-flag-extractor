@@ -1,9 +1,0 @@
-{
-    "$schema": "http://json-schema.org/schema",
-    "type": "object",
-    "title": "Template Logger Builder Options",
-    "description": "Log all Angular component templates in the project",
-    "additionalProperties": false,
-    "properties": {}
-}
-

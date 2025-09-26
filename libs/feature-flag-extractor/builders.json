@@ -1,7 +1,7 @@
 {
     "builders": {
-        "extract-template-feature-flags": {
-            "implementation": "../../../dist/libs/feature-flag-extractor/angular-extractor/src/index.js",
+        "run": {
+            "implementation": "../../dist/libs/feature-flag-extractor/src/index.js",
             "schema": "./src/schema.json",
             "description": "Extract Launch Darkly feature flags from the application templates."
         }
