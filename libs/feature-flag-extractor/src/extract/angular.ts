@@ -52,6 +52,11 @@ function parseTemplate(
 
 type TemplateFeatureFlagVisitorResult = void;
 
+interface VisitorPosition {
+    line: number;
+    col: number;
+}
+
 /**
  * Visitor class that extracts feature flag accesses from Angular templates
  *
@@ -318,7 +323,7 @@ class BindingFeatureFlagVisitor implements ng.AstVisitor {
     ) {}
 
     // Helper to add a flag read to the results
-    private addFlagRead(flagId: string, position: { line: number; col: number }) {
+    private addFlagRead(flagId: string, position: VisitorPosition) {
         // Remove quotes from flag ID if present
         const cleanFlagId = flagId.replace(/["']/g, '');
 
@@ -335,24 +340,18 @@ class BindingFeatureFlagVisitor implements ng.AstVisitor {
     }
 
     // Required visitor methods for ng.AstVisitor
-    visitBinary(
-        ast: ng.Binary,
-        position: { line: number; col: number }
-    ): BindingFeatureFlagVisitorResult {
+    visitBinary(ast: ng.Binary, position: VisitorPosition): BindingFeatureFlagVisitorResult {
         ast.left.visit(this, position);
         ast.right.visit(this, position);
     }
 
-    visitChain(
-        ast: ng.Chain,
-        position: { line: number; col: number }
-    ): BindingFeatureFlagVisitorResult {
+    visitChain(ast: ng.Chain, position: VisitorPosition): BindingFeatureFlagVisitorResult {
         ast.expressions.forEach(expr => expr.visit(this, position));
     }
 
     visitConditional(
         ast: ng.Conditional,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.condition.visit(this, position);
         ast.trueExp.visit(this, position);
@@ -361,41 +360,38 @@ class BindingFeatureFlagVisitor implements ng.AstVisitor {
 
     visitThisReceiver?(
         ast: ng.ThisReceiver,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         return;
     }
 
     visitImplicitReceiver(
         ast: ng.ImplicitReceiver,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         return;
     }
 
     visitInterpolation(
         ast: ng.Interpolation,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.expressions.forEach(expr => expr.visit(this, position));
     }
 
-    visitKeyedRead(
-        ast: ng.KeyedRead,
-        position: { line: number; col: number }
-    ): BindingFeatureFlagVisitorResult {
+    visitKeyedRead(ast: ng.KeyedRead, position: VisitorPosition): BindingFeatureFlagVisitorResult {
         // This is the main place where we find feature flag access in templates
         // Example: flags()['flag-name']
         // We need to check if this is accessing a property on a LDFlagSet
 
         // First visit the object being accessed
-        ast.obj.visit(this, position);
+        ast.receiver.visit(this, position);
 
         // Now check if the key is a string literal, which would be a flag name
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
             // Check if the object is a feature flag set by looking at naming patterns
             // This is a simple heuristic and might need refinement based on your app's patterns
-            const objText = ast.obj.toString().toLowerCase();
+            const objText = ast.receiver.toString().toLowerCase();
 
             if (
                 objText.includes('flag') ||
@@ -411,46 +407,40 @@ class BindingFeatureFlagVisitor implements ng.AstVisitor {
 
     visitKeyedWrite(
         ast: ng.KeyedWrite,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
-        ast.obj.visit(this, position);
+        ast.receiver.visit(this, position);
         ast.key.visit(this, position);
         ast.value.visit(this, position);
     }
 
     visitLiteralArray(
         ast: ng.LiteralArray,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.expressions.forEach(expr => expr.visit(this, position));
     }
 
     visitLiteralMap(
         ast: ng.LiteralMap,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.values.forEach(value => value.visit(this, position));
     }
 
     visitLiteralPrimitive(
         ast: ng.LiteralPrimitive,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         return;
     }
 
-    visitPipe(
-        ast: ng.BindingPipe,
-        position: { line: number; col: number }
-    ): BindingFeatureFlagVisitorResult {
+    visitPipe(ast: ng.BindingPipe, position: VisitorPosition): BindingFeatureFlagVisitorResult {
         ast.exp.visit(this, position);
         ast.args.forEach(arg => arg.visit(this, position));
     }
 
-    visitPrefixNot(
-        ast: ng.PrefixNot,
-        position: { line: number; col: number }
-    ): BindingFeatureFlagVisitorResult {
+    visitPrefixNot(ast: ng.PrefixNot, position: VisitorPosition): BindingFeatureFlagVisitorResult {
         ast.expression.visit(this, position);
     }
 
@@ -460,21 +450,21 @@ class BindingFeatureFlagVisitor implements ng.AstVisitor {
 
     visitNonNullAssert(
         ast: ng.NonNullAssert,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.expression.visit(this, position);
     }
 
     visitPropertyRead(
         ast: ng.PropertyRead,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.receiver.visit(this, position);
     }
 
     visitPropertyWrite(
         ast: ng.PropertyWrite,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.receiver.visit(this, position);
         ast.value.visit(this, position);
@@ -482,21 +472,21 @@ class BindingFeatureFlagVisitor implements ng.AstVisitor {
 
     visitSafePropertyRead(
         ast: ng.SafePropertyRead,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         ast.receiver.visit(this, position);
     }
 
     visitSafeKeyedRead(
         ast: ng.SafeKeyedRead,
-        position: { line: number; col: number }
+        position: VisitorPosition
     ): BindingFeatureFlagVisitorResult {
         // Similar to KeyedRead but with the safe navigation operator
         // Example: flags()?['flag-name']
-        ast.obj.visit(this, position);
+        ast.receiver.visit(this, position);
 
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            const objText = ast.obj.toString().toLowerCase();
+            const objText = ast.receiver.toString().toLowerCase();
 
             if (
                 objText.includes('flag') ||
