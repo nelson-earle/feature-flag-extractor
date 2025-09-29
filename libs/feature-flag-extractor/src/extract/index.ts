@@ -5,6 +5,7 @@ import { extractFeatureFlagsFromTs } from './typescript';
 import { BuilderContext } from '@angular-devkit/architect';
 
 export interface FlagRead {
+    kind: 'ts' | 'template';
     filePathRelative: string;
     row: number;
     col: number;

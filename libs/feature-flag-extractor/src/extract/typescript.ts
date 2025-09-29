@@ -24,6 +24,7 @@ export function extractFeatureFlagsFromTs(
                 );
                 const relativePath = path.relative(projectPath, sourceFile.fileName);
                 flagReads.push({
+                    kind: 'ts',
                     filePathRelative: relativePath,
                     row: line,
                     col: character,
@@ -44,9 +45,14 @@ export function extractFeatureFlagsFromTs(
                 ctx.logger.info(`COMPONENT TEMPLATE: ${filePath}`);
                 if (template) {
                     const templateUrl = `file://${filePath}`;
-                    flagReads.push(
-                        ...extractFeatureFlagsFromTemplate(ctx, typeChecker, templateUrl, template)
+                    const templateFlagReads = extractFeatureFlagsFromTemplate(
+                        ctx,
+                        projectPath,
+                        typeChecker,
+                        templateUrl,
+                        template
                     );
+                    flagReads.push(...templateFlagReads);
                 } else {
                     ctx.logger.info('[none]');
                 }

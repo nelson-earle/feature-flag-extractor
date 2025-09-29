@@ -23,7 +23,7 @@ export default createBuilder(
         for (const read of flagReads) {
             const line = read.row + 1;
             const char = read.col + 1;
-            console.log(`${read.filePathRelative}:${line}:${char} | ${read.flagId}`);
+            console.log(`${read.filePathRelative}:${line}:${char} [${read.kind}] | ${read.flagId}`);
         }
 
         return { success: true };

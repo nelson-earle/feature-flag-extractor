@@ -1,24 +1,30 @@
 import { BuilderContext } from '@angular-devkit/architect';
 import { FlagRead } from '.';
+import * as path from 'node:path';
 import * as ts from 'typescript';
 import * as ng from '@angular/compiler';
 
 export function extractFeatureFlagsFromTemplate(
     ctx: BuilderContext,
+    projectPath: string,
     typeChecker: ts.TypeChecker,
     templateUrl: string,
     template: string
 ): FlagRead[] {
-    const parsedTemplate = parseTemplate(ctx, template, templateUrl);
-    if (!parsedTemplate) return [];
+    const flagReads: FlagRead[] = [];
 
-    const visitor = new FeatureFlagVisitor(typeChecker, templateUrl);
+    const parsedTemplate = parseTemplate(ctx, template, templateUrl);
+    if (!parsedTemplate) return flagReads;
+
+    const filePath = templateUrl.replace(/^file:\/\//, '');
+    const filePathRelative = path.relative(projectPath, filePath);
+    const visitor = new FeatureFlagVisitor(typeChecker, filePathRelative, flagReads);
 
     for (const node of parsedTemplate.nodes) {
         node.visit<FeatureFlagVisitorResult>(visitor);
     }
 
-    return visitor.flagReads;
+    return flagReads;
 }
 
 /**
@@ -57,20 +63,14 @@ type FeatureFlagVisitorResult = void;
  *
  */
 class FeatureFlagVisitor implements ng.TmplAstVisitor<FeatureFlagVisitorResult> {
-    private readonly typeChecker: ts.TypeChecker;
-    private readonly urlPath: string;
     private readonly astVisitor: FeatureFlagAstVisitor;
 
-    readonly flagReads: FlagRead[] = [];
-
-    constructor(typeChecker: ts.TypeChecker, templateUrl: string) {
-        this.typeChecker = typeChecker;
-        this.urlPath = templateUrl.replace('file://', '');
-        this.astVisitor = new FeatureFlagAstVisitor(this.urlPath);
+    constructor(typeChecker: ts.TypeChecker, filePathRelative: string, flagReads: FlagRead[]) {
+        this.astVisitor = new FeatureFlagAstVisitor(typeChecker, filePathRelative, flagReads);
     }
 
     private ctx(): FeatureFlagAstVisitorContext {
-        return { typeChecker: this.typeChecker, flagReads: this.flagReads };
+        return;
     }
 
     private visitAst(
@@ -304,10 +304,7 @@ class FeatureFlagVisitor implements ng.TmplAstVisitor<FeatureFlagVisitorResult> 
     //#endregion ng.TmplAstVisitor
 }
 
-interface FeatureFlagAstVisitorContext {
-    typeChecker: ts.TypeChecker;
-    flagReads: FlagRead[];
-}
+type FeatureFlagAstVisitorContext = unknown;
 
 type FeatureFlagAstVisitorResult = void;
 
@@ -315,26 +312,26 @@ type FeatureFlagAstVisitorResult = void;
  * Visitor for expressions inside bindings to find feature flag accesses
  */
 class FeatureFlagAstVisitor implements ng.AstVisitor {
-    private readonly filePath: string;
+    private readonly typeChecker: ts.TypeChecker;
+    private readonly filePathRelative: string;
+    private readonly flagReads: FlagRead[];
 
-    constructor(filePath: string) {
-        this.filePath = filePath;
+    constructor(typeChecker: ts.TypeChecker, filePathRelative: string, flagReads: FlagRead[]) {
+        this.typeChecker = typeChecker;
+        this.filePathRelative = filePathRelative;
+        this.flagReads = flagReads;
     }
 
-    // Helper to add a flag read to the results
-    private addFlagRead(flagId: string, ctx: FeatureFlagAstVisitorContext) {
-        // Remove quotes from flag ID if present
-        const cleanFlagId = flagId.replace(/["']/g, '');
-
-        console.log(`Feature flag: ${cleanFlagId}`);
-
-        // For now, just log but don't store in flagReads array
-        // this.flagReads.push({
-        //     filePathRelative: this.filePath,
-        //     row: ctx.line,
-        //     col: ctx.col,
-        //     flagId: cleanFlagId,
-        // });
+    private addFlagRead(ast: ng.AST, flagId: string) {
+        console.log(`FOUND FLAG: ${flagId}`);
+        const strippedFlagId = flagId.replace(/["']/g, '');
+        this.flagReads.push({
+            kind: 'template',
+            filePathRelative: this.filePathRelative,
+            row: ast.sourceSpan.start,
+            col: ast.sourceSpan.end,
+            flagId: strippedFlagId,
+        });
     }
 
     visitUnary?(ast: ng.Unary, ctx: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
@@ -392,7 +389,7 @@ class FeatureFlagAstVisitor implements ng.AstVisitor {
         ast.receiver.visit(this, ctx);
 
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            console.log(`FOUND FLAG: ${ast.key.value}`);
+            this.addFlagRead(ast, ast.key.value);
         } else {
             ast.key.visit(this, ctx);
         }
@@ -489,7 +486,7 @@ class FeatureFlagAstVisitor implements ng.AstVisitor {
         ast.receiver.visit(this, ctx);
 
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            console.log(`FOUND SAFE FLAG: ${ast.key.value}`);
+            this.addFlagRead(ast, ast.key.value);
         } else {
             ast.key.visit(this, ctx);
         }
