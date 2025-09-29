@@ -5,7 +5,7 @@ import { LDFlagSet } from 'launchdarkly-js-client-sdk';
 @Component({
     selector: 'app-table',
     imports: [CommonModule],
-    templateUrl: './table.component.html',
+    templateUrl: `./table.component.html`,
     styleUrl: './table.component.css',
 })
 export class TableComponent {

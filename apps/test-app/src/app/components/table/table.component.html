@@ -1,4 +1,4 @@
 <p>table works!</p>
 <p>{{ featureFlags()?.['flag-a'] }}</p>
 <div (click)="onClick()"></div>
-<span>{{ span() }}</span>
+<span [attr.aria-label]="featureFlags()['flag-aria'] ? 'label1' : 'label2'">{{ span() }}</span>

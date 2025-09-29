@@ -4,6 +4,8 @@
 <p>{{ flags()?.['flag-c'] }}</p>
 <div [class.active]="flags()['flag-class']"></div>
 <button (click)="onClick(flags()['flag-clicked'])">Button</button>
+<span>{{ featureFlags['flag-x'] ? 1 : 2 }}</span>
+<span>{{ featureFlags?.['flag-y'] ? 3 : 4 }}</span>
 
 @let flagsForTable = featureFlags$ | async;
 @if (flagsForTable) {

@@ -15,6 +15,8 @@ export class PageComponent {
 
     featureFlags$ = this.flagSubject.asObservable();
 
+    featureFlags: LDFlagSet = {};
+
     flags = signal<LDFlagSet>({});
 
     onClick(value: unknown): void {
