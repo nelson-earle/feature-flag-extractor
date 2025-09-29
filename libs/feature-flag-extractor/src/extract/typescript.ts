@@ -44,7 +44,9 @@ export function extractFeatureFlagsFromTs(
                 ctx.logger.info(`COMPONENT TEMPLATE: ${filePath}`);
                 if (template) {
                     const templateUrl = `file://${filePath}`;
-                    flagReads.push(...extractFeatureFlagsFromTemplate(ctx, templateUrl, template));
+                    flagReads.push(
+                        ...extractFeatureFlagsFromTemplate(ctx, typeChecker, templateUrl, template)
+                    );
                 } else {
                     ctx.logger.info('[none]');
                 }

@@ -1,24 +1,24 @@
 import { BuilderContext } from '@angular-devkit/architect';
 import { FlagRead } from '.';
+import * as ts from 'typescript';
 import * as ng from '@angular/compiler';
 
 export function extractFeatureFlagsFromTemplate(
     ctx: BuilderContext,
+    typeChecker: ts.TypeChecker,
     templateUrl: string,
     template: string
 ): FlagRead[] {
-    // Parse the template using the Angular compiler
     const parsedTemplate = parseTemplate(ctx, template, templateUrl);
     if (!parsedTemplate) return [];
 
-    // Create visitors to extract feature flags
-    const visitor = new TemplateFeatureFlagVisitor(templateUrl);
+    const visitor = new FeatureFlagVisitor(typeChecker, templateUrl);
 
-    // Visit each node in the template
-    parsedTemplate.nodes.forEach(node => node.visit<void>(visitor));
+    for (const node of parsedTemplate.nodes) {
+        node.visit<FeatureFlagVisitorResult>(visitor);
+    }
 
-    // Return the extracted flags
-    return visitor.getFlagReads();
+    return visitor.flagReads;
 }
 
 /**
@@ -50,477 +50,492 @@ function parseTemplate(
     }
 }
 
-type TemplateFeatureFlagVisitorResult = void;
-
-interface VisitorPosition {
-    line: number;
-    col: number;
-}
+type FeatureFlagVisitorResult = void;
 
 /**
  * Visitor class that extracts feature flag accesses from Angular templates
  *
  */
-class TemplateFeatureFlagVisitor implements ng.TmplAstVisitor<TemplateFeatureFlagVisitorResult> {
-    private flagReads: FlagRead[] = [];
+class FeatureFlagVisitor implements ng.TmplAstVisitor<FeatureFlagVisitorResult> {
+    private readonly typeChecker: ts.TypeChecker;
     private readonly urlPath: string;
-    private readonly bindingVisitor: BindingFeatureFlagVisitor;
+    private readonly astVisitor: FeatureFlagAstVisitor;
 
-    constructor(templateUrl: string) {
-        // Convert file:// URL to a relative path for consistent reporting
+    readonly flagReads: FlagRead[] = [];
+
+    constructor(typeChecker: ts.TypeChecker, templateUrl: string) {
+        this.typeChecker = typeChecker;
         this.urlPath = templateUrl.replace('file://', '');
-        this.bindingVisitor = new BindingFeatureFlagVisitor(this.urlPath, this.flagReads);
+        this.astVisitor = new FeatureFlagAstVisitor(this.urlPath);
     }
 
-    getFlagReads(): FlagRead[] {
-        return this.flagReads;
+    private ctx(): FeatureFlagAstVisitorContext {
+        return { typeChecker: this.typeChecker, flagReads: this.flagReads };
     }
+
+    private visitAst(
+        node: ng.ASTWithSource,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagVisitorResult {
+        return node.visit(this.astVisitor, ctx);
+    }
+
+    //#region ng.TmplAstVisitor
 
     // visit?(node: Node): Result;
 
-    // Required visitor methods for ng.TmplAstVisitor
-    visitElement(element: ng.TmplAstElement): TemplateFeatureFlagVisitorResult {
+    visitElement(element: ng.TmplAstElement): FeatureFlagVisitorResult {
         // Visit all inputs (property bindings)
-        element.inputs.forEach(input => {
-            // The value of the input binding could contain a feature flag
+        for (const input of element.inputs) {
             const value = input.value;
             if (value instanceof ng.ASTWithSource) {
-                value.ast.visit(this.bindingVisitor, {
-                    line: value.sourceSpan.start.line,
-                    col: value.sourceSpan.start.col,
-                });
+                this.visitAst(value, this.ctx());
             }
-        });
+        }
 
         // Visit all outputs (event bindings)
-        element.outputs.forEach(output => {
+        for (const output of element.outputs) {
             const handler = output.handler;
             if (handler instanceof ng.ASTWithSource) {
-                handler.ast.visit(this.bindingVisitor, {
-                    line: handler.sourceSpan.start.line,
-                    col: handler.sourceSpan.start.col,
-                });
+                this.visitAst(handler, this.ctx());
             }
-        });
+        }
 
-        // Visit attributes (static and dynamic)
-        element.attributes.forEach(attr => {
-            // Static attributes usually don't contain feature flags, but included for completeness
-        });
+        // // Visit attributes (e.g. `alt="description"`)
+        // for (const attr of element.attributes) {
+        //     // Attributes are strings and therefore can't contain feature flags.
+        // }
 
-        // Visit references (e.g., #ref)
-        element.references.forEach(ref => {
-            // References usually don't contain feature flags
-        });
+        // // Visit template references (e.g. `#ref`)
+        // for (const _ref of element.references) {
+        //     // References are identifiers and therefore can't contain feature flags.
+        // }
 
         // Recursively visit children
-        element.children.forEach(child => child.visit<TemplateFeatureFlagVisitorResult>(this));
+        for (const child of element.children) {
+            child.visit<FeatureFlagVisitorResult>(this);
+        }
     }
 
-    visitTemplate(template: ng.TmplAstTemplate): TemplateFeatureFlagVisitorResult {
-        // Visit template attributes
-        template.templateAttrs.forEach(attr => {
+    visitTemplate(template: ng.TmplAstTemplate): FeatureFlagVisitorResult {
+        for (const attr of template.templateAttrs) {
             // Template attributes might contain feature flags in their bindings
-        });
+        }
 
-        // Visit all inputs (property bindings)
-        template.inputs.forEach(input => {
-            const value = input.value;
-            if (value instanceof ng.ASTWithSource) {
-                value.ast.visit(this.bindingVisitor, {
-                    line: value.sourceSpan.start.line,
-                    col: value.sourceSpan.start.col,
-                });
+        for (const input of template.inputs) {
+            if (input.value instanceof ng.ASTWithSource) {
+                this.visitAst(input.value, this.ctx());
             }
-        });
+        }
 
-        // Visit all outputs (event bindings)
-        template.outputs.forEach(output => {
-            const handler = output.handler;
-            if (handler instanceof ng.ASTWithSource) {
-                handler.ast.visit(this.bindingVisitor, {
-                    line: handler.sourceSpan.start.line,
-                    col: handler.sourceSpan.start.col,
-                });
+        for (const output of template.outputs) {
+            if (output.handler instanceof ng.ASTWithSource) {
+                this.visitAst(output.handler, this.ctx());
             }
-        });
+        }
 
-        // Recursively visit children
-        template.children.forEach(child => child.visit(this));
+        for (const child of template.children) {
+            child.visit<FeatureFlagVisitorResult>(this);
+        }
     }
 
-    visitContent(content: ng.TmplAstContent): TemplateFeatureFlagVisitorResult {
+    visitContent(content: ng.TmplAstContent): FeatureFlagVisitorResult {
         // Content projection, usually doesn't contain feature flags directly
     }
 
-    visitVariable(variable: ng.TmplAstVariable): TemplateFeatureFlagVisitorResult {
+    visitVariable(variable: ng.TmplAstVariable): FeatureFlagVisitorResult {
         // Template variables, usually don't contain feature flags
     }
 
-    visitReference(reference: ng.TmplAstReference): TemplateFeatureFlagVisitorResult {
+    visitReference(reference: ng.TmplAstReference): FeatureFlagVisitorResult {
         // References usually don't contain feature flags
     }
 
-    visitTextAttribute(attribute: ng.TmplAstTextAttribute): TemplateFeatureFlagVisitorResult {
+    visitTextAttribute(attribute: ng.TmplAstTextAttribute): FeatureFlagVisitorResult {
         // Static text attributes usually don't contain feature flags
     }
 
-    visitBoundAttribute(attribute: ng.TmplAstBoundAttribute): TemplateFeatureFlagVisitorResult {
+    visitBoundAttribute(attribute: ng.TmplAstBoundAttribute): FeatureFlagVisitorResult {
         const value = attribute.value;
         if (value instanceof ng.ASTWithSource) {
-            value.ast.visit(this.bindingVisitor, {
-                line: value.sourceSpan.start.line,
-                col: value.sourceSpan.start.col,
-            });
+            this.visitAst(value, this.ctx());
         }
     }
 
-    visitBoundEvent(event: ng.TmplAstBoundEvent): TemplateFeatureFlagVisitorResult {
+    visitBoundEvent(event: ng.TmplAstBoundEvent): FeatureFlagVisitorResult {
         const handler = event.handler;
         if (handler instanceof ng.ASTWithSource) {
-            handler.ast.visit(this.bindingVisitor, {
-                line: handler.sourceSpan.start.line,
-                col: handler.sourceSpan.start.col,
-            });
+            this.visitAst(handler, this.ctx());
         }
     }
 
-    visitText(text: ng.TmplAstText): TemplateFeatureFlagVisitorResult {
+    visitText(text: ng.TmplAstText): FeatureFlagVisitorResult {
         // Static text doesn't contain feature flags
     }
 
-    visitBoundText(text: ng.TmplAstBoundText): TemplateFeatureFlagVisitorResult {
-        const value = text.value;
-        if (value instanceof ng.ASTWithSource) {
-            value.ast.visit(this.bindingVisitor, {
-                line: value.sourceSpan.start.line,
-                col: value.sourceSpan.start.col,
-            });
+    visitBoundText(text: ng.TmplAstBoundText): FeatureFlagVisitorResult {
+        if (text.value instanceof ng.ASTWithSource) {
+            this.visitAst(text.value, this.ctx());
         }
     }
 
-    visitIcu(icu: ng.TmplAstIcu): TemplateFeatureFlagVisitorResult {
+    visitIcu(icu: ng.TmplAstIcu): FeatureFlagVisitorResult {
         // ICU expressions might contain feature flags
         // Parse ICU cases if needed
     }
 
-    visitDeferredBlock(deferred: ng.TmplAstDeferredBlock): TemplateFeatureFlagVisitorResult {
-        deferred.children.forEach(child => child.visit(this));
+    visitDeferredBlock(deferred: ng.TmplAstDeferredBlock): FeatureFlagVisitorResult {
+        for (const child of deferred.children) {
+            child.visit<FeatureFlagVisitorResult>(this);
+        }
         if (deferred.placeholder) {
-            deferred.placeholder.children.forEach(child => child.visit(this));
+            for (const child of deferred.placeholder.children) {
+                child.visit<FeatureFlagVisitorResult>(this);
+            }
         }
         if (deferred.loading) {
-            deferred.loading.children.forEach(child => child.visit(this));
+            for (const child of deferred.loading.children) {
+                child.visit<FeatureFlagVisitorResult>(this);
+            }
         }
         if (deferred.error) {
-            deferred.error.children.forEach(child => child.visit(this));
+            for (const child of deferred.error.children) {
+                child.visit<FeatureFlagVisitorResult>(this);
+            }
         }
     }
 
     visitDeferredBlockPlaceholder(
         block: ng.TmplAstDeferredBlockPlaceholder
-    ): TemplateFeatureFlagVisitorResult {
-        block.children.forEach(child => child.visit(this));
+    ): FeatureFlagVisitorResult {
+        for (const child of block.children) {
+            child.visit<FeatureFlagVisitorResult>(this);
+        }
     }
 
-    visitDeferredBlockError(block: ng.TmplAstDeferredBlockError): TemplateFeatureFlagVisitorResult {
-        block.children.forEach(child => child.visit(this));
+    visitDeferredBlockError(block: ng.TmplAstDeferredBlockError): FeatureFlagVisitorResult {
+        for (const child of block.children) {
+            child.visit<FeatureFlagVisitorResult>(this);
+        }
     }
 
-    visitDeferredBlockLoading(
-        block: ng.TmplAstDeferredBlockLoading
-    ): TemplateFeatureFlagVisitorResult {
-        block.children.forEach(child => child.visit(this));
+    visitDeferredBlockLoading(block: ng.TmplAstDeferredBlockLoading): FeatureFlagVisitorResult {
+        for (const child of block.children) {
+            child.visit<FeatureFlagVisitorResult>(this);
+        }
     }
 
-    visitDeferredTrigger(_trigger: ng.TmplAstDeferredTrigger): TemplateFeatureFlagVisitorResult {
+    visitDeferredTrigger(_trigger: ng.TmplAstDeferredTrigger): FeatureFlagVisitorResult {
         return;
     }
 
-    visitSwitchBlock(switchBlock: ng.TmplAstSwitchBlock): TemplateFeatureFlagVisitorResult {
+    visitSwitchBlock(switchBlock: ng.TmplAstSwitchBlock): FeatureFlagVisitorResult {
         // Angular 17+ switch block
         if (switchBlock.expression instanceof ng.ASTWithSource) {
-            switchBlock.expression.ast.visit(this.bindingVisitor, {
-                line: switchBlock.expression.sourceSpan.start.line,
-                col: switchBlock.expression.sourceSpan.start.col,
-            });
+            this.visitAst(switchBlock.expression, this.ctx());
         }
-        switchBlock.cases.forEach(case_ => {
+        for (const case_ of switchBlock.cases) {
             if (case_.expression instanceof ng.ASTWithSource) {
-                case_.expression.ast.visit(this.bindingVisitor, {
-                    line: case_.expression.sourceSpan.start.line,
-                    col: case_.expression.sourceSpan.start.col,
-                });
+                this.visitAst(case_.expression, this.ctx());
             }
-            case_.children.forEach(child => child.visit(this));
-        });
+            for (const child of case_.children) {
+                child.visit<FeatureFlagVisitorResult>(this);
+            }
+        }
     }
 
-    visitSwitchBlockCase(switchCase: ng.TmplAstSwitchBlockCase): TemplateFeatureFlagVisitorResult {
-        switchCase.children.forEach(child => child.visit(this));
+    visitSwitchBlockCase(switchCase: ng.TmplAstSwitchBlockCase): FeatureFlagVisitorResult {
+        for (const child of switchCase.children) {
+            child.visit(this);
+        }
     }
 
-    visitForLoopBlock(block: ng.TmplAstForLoopBlock): TemplateFeatureFlagVisitorResult {
+    visitForLoopBlock(block: ng.TmplAstForLoopBlock): FeatureFlagVisitorResult {
         // Angular 17+ for block
         if (block.expression instanceof ng.ASTWithSource) {
-            block.expression.ast.visit(this.bindingVisitor, {
-                line: block.expression.sourceSpan.start.line,
-                col: block.expression.sourceSpan.start.col,
-            });
+            this.visitAst(block.expression, this.ctx());
         }
-        block.children.forEach(child => child.visit(this));
+        for (const child of block.children) {
+            child.visit(this);
+        }
         if (block.empty) {
-            block.empty.children.forEach(child => child.visit(this));
+            for (const child of block.empty.children) {
+                child.visit(this);
+            }
         }
     }
 
-    visitForLoopBlockEmpty(block: ng.TmplAstForLoopBlockEmpty): TemplateFeatureFlagVisitorResult {
-        block.children.forEach(child => child.visit(this));
+    visitForLoopBlockEmpty(block: ng.TmplAstForLoopBlockEmpty): FeatureFlagVisitorResult {
+        for (const child of block.children) {
+            child.visit(this);
+        }
     }
 
-    visitIfBlock(ifBlock: ng.TmplAstIfBlock): TemplateFeatureFlagVisitorResult {
+    visitIfBlock(ifBlock: ng.TmplAstIfBlock): FeatureFlagVisitorResult {
         // Angular 17+ if block
-        ifBlock.branches.forEach(branch => {
+        for (const branch of ifBlock.branches) {
             if (branch.expression instanceof ng.ASTWithSource) {
-                branch.expression.ast.visit(this.bindingVisitor, {
-                    line: branch.expression.sourceSpan.start.line,
-                    col: branch.expression.sourceSpan.start.col,
-                });
+                this.visitAst(branch.expression, this.ctx());
             }
-            branch.children.forEach(child => child.visit(this));
-        });
+            for (const child of branch.children) {
+                child.visit(this);
+            }
+        }
     }
 
-    visitIfBlockBranch(branch: ng.TmplAstIfBlockBranch): TemplateFeatureFlagVisitorResult {
-        branch.children.forEach(child => child.visit(this));
+    visitIfBlockBranch(branch: ng.TmplAstIfBlockBranch): FeatureFlagVisitorResult {
+        for (const child of branch.children) {
+            child.visit(this);
+        }
     }
 
     visitUnknownBlock(_block: ng.TmplAstUnknownBlock): void {
         return;
     }
 
-    visitLetDeclaration(decl: ng.TmplAstLetDeclaration): TemplateFeatureFlagVisitorResult {
+    visitLetDeclaration(decl: ng.TmplAstLetDeclaration): FeatureFlagVisitorResult {
         // Angular 17+ let declaration
         const value = decl.value;
         if (value instanceof ng.ASTWithSource) {
-            value.ast.visit(this.bindingVisitor, {
-                line: value.sourceSpan.start.line,
-                col: value.sourceSpan.start.col,
-            });
+            this.visitAst(value, this.ctx());
         }
     }
+
+    //#endregion ng.TmplAstVisitor
 }
 
-type BindingFeatureFlagVisitorResult = void;
+interface FeatureFlagAstVisitorContext {
+    typeChecker: ts.TypeChecker;
+    flagReads: FlagRead[];
+}
+
+type FeatureFlagAstVisitorResult = void;
 
 /**
  * Visitor for expressions inside bindings to find feature flag accesses
  */
-class BindingFeatureFlagVisitor implements ng.AstVisitor {
-    constructor(
-        private readonly filePath: string,
-        private readonly flagReads: FlagRead[]
-    ) {}
+class FeatureFlagAstVisitor implements ng.AstVisitor {
+    private readonly filePath: string;
+
+    constructor(filePath: string) {
+        this.filePath = filePath;
+    }
 
     // Helper to add a flag read to the results
-    private addFlagRead(flagId: string, position: VisitorPosition) {
+    private addFlagRead(flagId: string, ctx: FeatureFlagAstVisitorContext) {
         // Remove quotes from flag ID if present
         const cleanFlagId = flagId.replace(/["']/g, '');
 
-        this.flagReads.push({
-            filePathRelative: this.filePath,
-            row: position.line,
-            col: position.col,
-            flagId: cleanFlagId,
-        });
+        console.log(`Feature flag: ${cleanFlagId}`);
+
+        // For now, just log but don't store in flagReads array
+        // this.flagReads.push({
+        //     filePathRelative: this.filePath,
+        //     row: ctx.line,
+        //     col: ctx.col,
+        //     flagId: cleanFlagId,
+        // });
     }
 
-    visitUnary?(ast: ng.Unary, context: any) {
-        throw new Error('Method not implemented.');
+    visitUnary?(ast: ng.Unary, ctx: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
+        ast.expr.visit(this, ctx);
     }
 
     // Required visitor methods for ng.AstVisitor
-    visitBinary(ast: ng.Binary, position: VisitorPosition): BindingFeatureFlagVisitorResult {
-        ast.left.visit(this, position);
-        ast.right.visit(this, position);
+    visitBinary(ast: ng.Binary, ctx: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
+        ast.left.visit(this, ctx);
+        ast.right.visit(this, ctx);
     }
 
-    visitChain(ast: ng.Chain, position: VisitorPosition): BindingFeatureFlagVisitorResult {
-        ast.expressions.forEach(expr => expr.visit(this, position));
+    visitChain(ast: ng.Chain, ctx: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
+        for (const expr of ast.expressions) {
+            expr.visit(this, ctx);
+        }
     }
 
     visitConditional(
         ast: ng.Conditional,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.condition.visit(this, position);
-        ast.trueExp.visit(this, position);
-        ast.falseExp.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.condition.visit(this, ctx);
+        ast.trueExp.visit(this, ctx);
+        ast.falseExp.visit(this, ctx);
     }
 
     visitThisReceiver?(
         ast: ng.ThisReceiver,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
         return;
     }
 
     visitImplicitReceiver(
         ast: ng.ImplicitReceiver,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
         return;
     }
 
     visitInterpolation(
         ast: ng.Interpolation,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.expressions.forEach(expr => expr.visit(this, position));
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        for (const expr of ast.expressions) {
+            expr.visit(this, ctx);
+        }
     }
 
-    visitKeyedRead(ast: ng.KeyedRead, position: VisitorPosition): BindingFeatureFlagVisitorResult {
-        // This is the main place where we find feature flag access in templates
-        // Example: flags()['flag-name']
-        // We need to check if this is accessing a property on a LDFlagSet
+    visitKeyedRead(
+        ast: ng.KeyedRead,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
 
-        // First visit the object being accessed
-        ast.receiver.visit(this, position);
-
-        // Now check if the key is a string literal, which would be a flag name
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            // Check if the object is a feature flag set by looking at naming patterns
-            // This is a simple heuristic and might need refinement based on your app's patterns
-            const objText = ast.receiver.toString().toLowerCase();
-
-            if (
-                objText.includes('flag') ||
-                objText.includes('featureflag') ||
-                objText.includes('feature')
-            ) {
-                this.addFlagRead(ast.key.value, position);
-            }
+            console.log(`FOUND FLAG: ${ast.key.value}`);
+        } else {
+            ast.key.visit(this, ctx);
         }
-
-        ast.key.visit(this, position);
     }
 
     visitKeyedWrite(
         ast: ng.KeyedWrite,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.receiver.visit(this, position);
-        ast.key.visit(this, position);
-        ast.value.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
+        ast.key.visit(this, ctx);
+        ast.value.visit(this, ctx);
     }
 
     visitLiteralArray(
         ast: ng.LiteralArray,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.expressions.forEach(expr => expr.visit(this, position));
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        for (const expr of ast.expressions) {
+            expr.visit(this, ctx);
+        }
     }
 
     visitLiteralMap(
         ast: ng.LiteralMap,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.values.forEach(value => value.visit(this, position));
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        for (const value of ast.values) {
+            value.visit(this, ctx);
+        }
     }
 
     visitLiteralPrimitive(
         ast: ng.LiteralPrimitive,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
         return;
     }
 
-    visitPipe(ast: ng.BindingPipe, position: VisitorPosition): BindingFeatureFlagVisitorResult {
-        ast.exp.visit(this, position);
-        ast.args.forEach(arg => arg.visit(this, position));
+    visitPipe(ast: ng.BindingPipe, ctx: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
+        ast.exp.visit(this, ctx);
+        for (const arg of ast.args) {
+            arg.visit(this, ctx);
+        }
     }
 
-    visitPrefixNot(ast: ng.PrefixNot, position: VisitorPosition): BindingFeatureFlagVisitorResult {
-        ast.expression.visit(this, position);
+    visitPrefixNot(
+        ast: ng.PrefixNot,
+        ctrx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.expression.visit(this, ctrx);
     }
 
-    visitTypeofExpression(ast: ng.TypeofExpression, context: any) {
-        throw new Error('Method not implemented.');
+    visitTypeofExpression(
+        ast: ng.TypeofExpression,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.expression.visit(this, ctx);
     }
 
     visitNonNullAssert(
         ast: ng.NonNullAssert,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.expression.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.expression.visit(this, ctx);
     }
 
     visitPropertyRead(
         ast: ng.PropertyRead,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.receiver.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
     }
 
     visitPropertyWrite(
         ast: ng.PropertyWrite,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.receiver.visit(this, position);
-        ast.value.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
+        ast.value.visit(this, ctx);
     }
 
     visitSafePropertyRead(
         ast: ng.SafePropertyRead,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        ast.receiver.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
     }
 
     visitSafeKeyedRead(
         ast: ng.SafeKeyedRead,
-        position: VisitorPosition
-    ): BindingFeatureFlagVisitorResult {
-        // Similar to KeyedRead but with the safe navigation operator
-        // Example: flags()?['flag-name']
-        ast.receiver.visit(this, position);
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
 
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            const objText = ast.receiver.toString().toLowerCase();
-
-            if (
-                objText.includes('flag') ||
-                objText.includes('featureflag') ||
-                objText.includes('feature')
-            ) {
-                this.addFlagRead(ast.key.value, position);
-            }
+            console.log(`FOUND SAFE FLAG: ${ast.key.value}`);
+        } else {
+            ast.key.visit(this, ctx);
         }
-
-        ast.key.visit(this, position);
     }
 
-    visitCall(ast: ng.Call, context: any) {
-        throw new Error('Method not implemented.');
+    visitCall(ast: ng.Call, ctx: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
+        for (const arg of ast.args) {
+            arg.visit(this, ctx);
+        }
     }
 
-    visitSafeCall(ast: ng.SafeCall, context: any) {
-        throw new Error('Method not implemented.');
+    visitSafeCall(
+        ast: ng.SafeCall,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.receiver.visit(this, ctx);
+        for (const arg of ast.args) {
+            arg.visit(this, ctx);
+        }
     }
 
-    visitTemplateLiteral(ast: ng.TemplateLiteral, context: any) {
-        throw new Error('Method not implemented.');
+    visitTemplateLiteral(
+        ast: ng.TemplateLiteral,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        for (const expr of ast.expressions) {
+            expr.visit(this, ctx);
+        }
     }
 
-    visitTemplateLiteralElement(ast: ng.TemplateLiteralElement, context: any) {
-        throw new Error('Method not implemented.');
+    visitTemplateLiteralElement(
+        ast: ng.TemplateLiteralElement,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        return;
     }
 
-    visitASTWithSource?(ast: ng.ASTWithSource, context: any) {
-        throw new Error('Method not implemented.');
+    visitASTWithSource?(
+        ast: ng.ASTWithSource,
+        ctx: FeatureFlagAstVisitorContext
+    ): FeatureFlagAstVisitorResult {
+        ast.ast.visit(this, ctx);
     }
 
-    visit?(ast: ng.AST, context?: any) {
-        throw new Error('Method not implemented.');
+    visit(ast: ng.AST, ctx?: FeatureFlagAstVisitorContext): FeatureFlagAstVisitorResult {
+        return;
     }
 }
