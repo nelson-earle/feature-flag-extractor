@@ -27,7 +27,7 @@ export function extractFeatureFlagsFromTs(
                     kind: 'ts',
                     filePathRelative: relativePath,
                     row: line,
-                    col: character,
+                    col: character + 1,
                     flagId: flag,
                 });
             }
