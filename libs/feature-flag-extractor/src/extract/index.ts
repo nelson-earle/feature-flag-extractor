@@ -1,7 +1,7 @@
 import * as ts from 'typescript';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { extractFeatureFlagsFromTs } from './typescript';
+import { extractFeatureFlagsFromTs } from './ts';
 import { BuilderContext } from '@angular-devkit/architect';
 
 export interface FlagRead {
