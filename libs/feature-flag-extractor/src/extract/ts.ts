@@ -16,7 +16,7 @@ export function extractFeatureFlagsFromTs(
 
     const visit = (node: ts.Node): void => {
         if (ts.isElementAccessExpression(node)) {
-            const flag = extractFlagFromElementAccess(typeChecker, node);
+            const flag = extractFlagFromElementAccess(ctx, typeChecker, node);
 
             if (flag) {
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(
@@ -73,6 +73,7 @@ export function extractFeatureFlagsFromTs(
  * @returns The flag ID or null if the node doesn't match our criteria.
  */
 function extractFlagFromElementAccess(
+    ctx: BuilderContext,
     typeChecker: ts.TypeChecker,
     node: ts.ElementAccessExpression
 ): string | null {
@@ -127,14 +128,14 @@ function extractFlagFromElementAccess(
             flag = extractDynamicFlag(typeChecker, node.argumentExpression);
         } else if (keyTypeString !== 'string') {
             // Neither a string literal or an identifier/property read
-            console.warn(
+            ctx.logger.warn(
                 `Found read of 'LDFlagSet' with key of unsupported type: ${keyTypeString}`
             );
         }
     }
 
     if (!flag) {
-        console.warn(`Unable to get flag ID for 'LDFlagSet' read: ${node.getText()}`);
+        ctx.logger.warn(`Unable to get flag ID for 'LDFlagSet' read: ${node.getText()}`);
     }
 
     return flag;
