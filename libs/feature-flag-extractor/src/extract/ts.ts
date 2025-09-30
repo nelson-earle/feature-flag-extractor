@@ -110,7 +110,7 @@ function extractFlagFromElementAccess(
         ts.isNoSubstitutionTemplateLiteral(node.argumentExpression)
     ) {
         // Direct string literal like `flags['feature']`
-        flag = node.argumentExpression.getText();
+        flag = node.argumentExpression.text;
     } else {
         // Handle property reads like `flags[FEATURE_FLAG]`
         const keyType = typeChecker.getTypeAtLocation(node.argumentExpression);
@@ -118,7 +118,7 @@ function extractFlagFromElementAccess(
 
         if (keyTypeString.startsWith('"')) {
             // Key is a string literal
-            flag = keyTypeString;
+            flag = keyTypeString.replace(/['"]/g, '');
         } else if (
             ts.isIdentifier(node.argumentExpression) ||
             ts.isPropertyAccessExpression(node.argumentExpression)
@@ -159,7 +159,7 @@ function extractDynamicFlag(
             declaration.initializer
         ) {
             if (ts.isStringLiteral(declaration.initializer)) {
-                return declaration.initializer.getText();
+                return declaration.initializer.text;
             }
         }
     }
