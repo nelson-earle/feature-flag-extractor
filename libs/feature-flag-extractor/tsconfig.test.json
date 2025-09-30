@@ -1,0 +1,17 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "../../dist/out-tsc",
+        "types": ["node", "jest"],
+        "target": "ES2022",
+        "strictPropertyInitialization": false,
+        "strictNullChecks": false,
+        "noPropertyAccessFromIndexSignature": false,
+        "noImplicitReturns": false,
+        "noImplicitAny": false,
+        "noImplicitOverride": false,
+        "useDefineForClassFields": false
+    },
+    "files": ["src/test-setup.ts", "src/test-utils.ts"],
+    "include": ["src/**/*.test.ts"]
+}

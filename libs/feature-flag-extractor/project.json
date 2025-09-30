@@ -12,7 +12,7 @@
             "options": {
                 "outputPath": "dist/libs/feature-flag-extractor",
                 "main": "libs/feature-flag-extractor/src/index.ts",
-                "tsConfig": "libs/feature-flag-extractor/tsconfig.json",
+                "tsConfig": "libs/feature-flag-extractor/tsconfig.lib.json",
                 "assets": [
                     "libs/feature-flag-extractor/builders.json",
                     "libs/feature-flag-extractor/src/**/*.json"
