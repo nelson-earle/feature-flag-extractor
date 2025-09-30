@@ -153,14 +153,22 @@ function extractDynamicFlag(
     const symbol = typeChecker.getSymbolAtLocation(expression);
 
     if (symbol && symbol.declarations && symbol.declarations.length > 0) {
-        const declaration = symbol.declarations[0];
+        const decl = symbol.declarations[0];
         // Check if it's a variable declaration with initializer
+        // VariableDeclaration:
+        //     const name = ...;
+        // PropertyAssignment:
+        //     { name: ... }
+        // PropertyDeclaration:
+        //     class { name = ...; }
         if (
-            (ts.isVariableDeclaration(declaration) || ts.isPropertyDeclaration(declaration)) &&
-            declaration.initializer
+            (ts.isVariableDeclaration(decl) ||
+                ts.isPropertyAssignment(decl) ||
+                ts.isPropertyDeclaration(decl)) &&
+            decl.initializer
         ) {
-            if (ts.isStringLiteral(declaration.initializer)) {
-                return declaration.initializer.text;
+            if (ts.isStringLiteral(decl.initializer)) {
+                return decl.initializer.text;
             }
         }
     }
