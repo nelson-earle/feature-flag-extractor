@@ -215,10 +215,10 @@ function getTemplateFromComponentMetadata(
                         return null;
                     }
                 } catch (error) {
-                    ctx.logger.error(
-                        `Failed to read template file for component: ${filePath}\n${(error as Error).message}`
+                    const message = error instanceof Error ? error.message : `${error}`;
+                    throw new Error(
+                        `Failed to read template file for component: ${filePath}\n\n${message}`
                     );
-                    return null;
                 }
             }
         }
