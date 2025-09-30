@@ -86,6 +86,7 @@ function extractFlagFromElementAccess(
     // Check key (property being accessed)
     const keyIsValid =
         ts.isStringLiteral(node.argumentExpression) ||
+        ts.isNoSubstitutionTemplateLiteral(node.argumentExpression) ||
         ts.isPropertyAccessExpression(node.argumentExpression) ||
         ts.isIdentifier(node.argumentExpression);
     if (!keyIsValid) return null;
@@ -104,7 +105,10 @@ function extractFlagFromElementAccess(
     // Extract the flag ID
     let flag: string | null = null;
 
-    if (ts.isStringLiteral(node.argumentExpression)) {
+    if (
+        ts.isStringLiteral(node.argumentExpression) ||
+        ts.isNoSubstitutionTemplateLiteral(node.argumentExpression)
+    ) {
         // Direct string literal like `flags['feature']`
         flag = node.argumentExpression.getText();
     } else {
