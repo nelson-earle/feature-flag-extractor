@@ -12,6 +12,9 @@ export function extractFeatureFlagsFromTs(
     sourceFile: ts.SourceFile,
     filePath: string
 ): FlagRead[] {
+    ctx.logger.info('--------------------------------------------------');
+    ctx.logger.info(`----- ${filePath}`);
+    ctx.logger.info('--------------------------------------------------');
     const flagReads: FlagRead[] = [];
 
     const visit = (node: ts.Node): void => {
@@ -31,18 +34,14 @@ export function extractFeatureFlagsFromTs(
                     flagId: flag,
                 });
             }
-        } else if (
-            ts.isDecorator(node) &&
-            ts.isCallExpression(node.expression) &&
-            ts.isIdentifier(node.expression.expression) &&
-            node.expression.expression.text === 'Component'
-        ) {
-            // Extract the first component decorator argument
-            const decoratorArg = node.expression.arguments[0];
-            if (decoratorArg && ts.isObjectLiteralExpression(decoratorArg)) {
+        } else if (ts.isClassDeclaration(node)) {
+            const flagProps = getFlagSetsFromComponentClassDeclaration(typeChecker, node);
+            for (const prop of flagProps.values()) {
+                console.log(`--- PROP [${prop.kind.padStart(8, ' ')}] ${prop.name}: ${prop.type}`);
+            }
+            const decoratorArg = getAngularComponentMetadataFromNodeDecorators(node);
+            if (decoratorArg) {
                 const template = getTemplateFromComponentMetadata(ctx, filePath, decoratorArg);
-                ctx.logger.info(`--------------------------------------------------`);
-                ctx.logger.info(`COMPONENT TEMPLATE: ${filePath}`);
                 if (template) {
                     const templateUrl = `file://${filePath}`;
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
@@ -52,8 +51,6 @@ export function extractFeatureFlagsFromTs(
                         template
                     );
                     flagReads.push(...templateFlagReads);
-                } else {
-                    ctx.logger.info('[none]');
                 }
             }
         }
@@ -64,6 +61,83 @@ export function extractFeatureFlagsFromTs(
     ts.forEachChild(sourceFile, visit);
 
     return flagReads;
+}
+
+interface FeatureFlagProperty {
+    kind: 'property' | 'method' | 'async';
+    name: string;
+    type: string;
+}
+
+const ASYNC_PIPABLE_LDFLAGSET_RE =
+    /^(Observable|Subscribable|BehaviorSubject|Subject|PromiseLike|Promise)<LDFlagSet>$/;
+
+function getFlagSetsFromComponentClassDeclaration(
+    typeChecker: ts.TypeChecker,
+    classDecl: ts.ClassDeclaration
+): Map<string, FeatureFlagProperty> {
+    const classType = typeChecker.getTypeAtLocation(classDecl);
+
+    const flagSetProperties = new Map<string, FeatureFlagProperty>();
+
+    for (const field of classType.getProperties()) {
+        const type = typeChecker.getTypeOfSymbolAtLocation(field, classDecl);
+        const typeString = typeChecker.typeToString(type);
+
+        if (typeString === 'LDFlagSet') {
+            // Property is a flag set.
+            flagSetProperties.set(field.name, {
+                kind: 'property',
+                name: field.name,
+                type: typeString,
+            });
+        } else if (ASYNC_PIPABLE_LDFLAGSET_RE.test(typeString)) {
+            // Property is an async-pipable flag set.
+            flagSetProperties.set(field.name, {
+                kind: 'async',
+                name: field.name,
+                type: typeString,
+            });
+        } else {
+            const signatures = type.getCallSignatures();
+            if (signatures.length > 0) {
+                // Property is function-like.
+                for (const sig of signatures) {
+                    const returnType = sig.getReturnType();
+                    const returnTypeString = typeChecker.typeToString(returnType);
+                    if (returnTypeString === 'LDFlagSet') {
+                        flagSetProperties.set(field.name, {
+                            kind: 'method',
+                            name: field.name,
+                            type: typeString,
+                        });
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return flagSetProperties;
+}
+
+function getAngularComponentMetadataFromNodeDecorators(
+    classDecl: ts.HasDecorators
+): ts.ObjectLiteralExpression | null {
+    const decorators = ts.getDecorators(classDecl) ?? [];
+    for (const d of decorators) {
+        if (
+            ts.isCallExpression(d.expression) &&
+            ts.isIdentifier(d.expression.expression) &&
+            d.expression.expression.text === 'Component'
+        ) {
+            const firstArg = d.expression.arguments[0];
+            if (firstArg && ts.isObjectLiteralExpression(firstArg)) {
+                return firstArg;
+            }
+        }
+    }
+    return null;
 }
 
 /**
