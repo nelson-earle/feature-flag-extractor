@@ -85,8 +85,7 @@ function extractFlagFromElementAccess(
 
     // Check key (property being accessed)
     const keyIsValid =
-        ts.isStringLiteral(node.argumentExpression) ||
-        ts.isNoSubstitutionTemplateLiteral(node.argumentExpression) ||
+        isStaticString(node.argumentExpression) ||
         ts.isPropertyAccessExpression(node.argumentExpression) ||
         ts.isIdentifier(node.argumentExpression);
     if (!keyIsValid) return null;
@@ -105,10 +104,7 @@ function extractFlagFromElementAccess(
     // Extract the flag ID
     let flag: string | null = null;
 
-    if (
-        ts.isStringLiteral(node.argumentExpression) ||
-        ts.isNoSubstitutionTemplateLiteral(node.argumentExpression)
-    ) {
+    if (isStaticString(node.argumentExpression)) {
         // Direct string literal like `flags['feature']`
         flag = node.argumentExpression.text;
     } else {
@@ -183,10 +179,7 @@ function getTemplateFromComponentMetadata(
     for (const prop of metadata.properties) {
         if (ts.isPropertyAssignment(prop)) {
             if (isObjectKeyAndEquals(prop.name, 'template')) {
-                if (
-                    ts.isStringLiteral(prop.initializer) ||
-                    ts.isNoSubstitutionTemplateLiteral(prop.initializer)
-                ) {
+                if (isStaticString(prop.initializer)) {
                     return prop.initializer.text;
                 } else {
                     ctx.logger.warn(
@@ -196,10 +189,7 @@ function getTemplateFromComponentMetadata(
                 }
                 // TODO: handle initializer that is an identifier of a constant.
             } else if (isObjectKeyAndEquals(prop.name, 'templateUrl')) {
-                if (
-                    !ts.isStringLiteral(prop.initializer) &&
-                    !ts.isNoSubstitutionTemplateLiteral(prop.initializer)
-                ) {
+                if (!isStaticString(prop.initializer)) {
                     ctx.logger.warn(
                         `Template URL is not a string literal for component: ${filePath}`
                     );
@@ -232,6 +222,12 @@ function getTemplateFromComponentMetadata(
     }
 
     return null;
+}
+
+function isStaticString(
+    node: ts.Node
+): node is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
+    return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
 }
 
 function isObjectKeyAndEquals(node: ts.PropertyName, value: string): boolean {
