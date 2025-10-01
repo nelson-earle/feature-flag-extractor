@@ -26,6 +26,8 @@ export default createBuilder(
             console.log(`${read.filePathRelative}:${line}:${char} [${read.kind}] | ${read.flagId}`);
         }
 
+        console.log(flagReads.length);
+
         return { success: true };
     }
 );

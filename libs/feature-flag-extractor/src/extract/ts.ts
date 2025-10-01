@@ -48,7 +48,6 @@ export function extractFeatureFlagsFromTs(
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
                         projectPath,
-                        typeChecker,
                         templateUrl,
                         template
                     );
