@@ -76,30 +76,19 @@ function extractFlagFromElementAccess(
     typeChecker: ts.TypeChecker,
     node: ts.ElementAccessExpression
 ): string | null {
-    // Check receiver (object being accessed)
-    const receiverIsValid =
-        ts.isPropertyAccessExpression(node.expression) ||
-        ts.isIdentifier(node.expression) ||
-        ts.isCallExpression(node.expression);
-    if (!receiverIsValid) return null;
-
-    // Check key (property being accessed)
-    const keyIsValid =
-        isStaticString(node.argumentExpression) ||
-        ts.isPropertyAccessExpression(node.argumentExpression) ||
-        ts.isIdentifier(node.argumentExpression);
-    if (!keyIsValid) return null;
-
-    // Get the type of the receiver
     const receiverType = typeChecker.getTypeAtLocation(node.expression);
-    const receiverTypeString = typeChecker.typeToString(receiverType);
 
-    // Check if the receiver is an LDFlagSet
-    const receiverIsLDFlagSet =
-        receiverTypeString.includes('LDFlagSet') ||
-        (receiverType.symbol && receiverType.symbol.name === 'LDFlagSet');
+    const receiverTypeContainsLDFlagSet = typeContainsSymbol(
+        typeChecker,
+        receiverType,
+        'LDFlagSet'
+    );
+    if (!receiverTypeContainsLDFlagSet) {
+        return null;
+    }
 
-    if (!receiverIsLDFlagSet) return null;
+    // TODO: replace the below key evaluation with a visitor that does partial evaluation for
+    // strings (e.g. "StringPartialVisitor").
 
     // Extract the flag ID
     let flag: string | null = null;
@@ -134,6 +123,14 @@ function extractFlagFromElementAccess(
     }
 
     return flag;
+}
+
+function typeContainsSymbol(typeChecker: ts.TypeChecker, type: ts.Type, symbol: string): boolean {
+    if (type.isUnionOrIntersection()) {
+        return type.types.some(t => typeContainsSymbol(typeChecker, t, symbol));
+    } else {
+        return type.getSymbol()?.name === symbol;
+    }
 }
 
 /**
