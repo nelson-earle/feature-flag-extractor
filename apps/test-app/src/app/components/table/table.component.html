@@ -1,4 +1,10 @@
+@switch (featureFlags()['flag-switch']) {
+    @case (true) {}
+    @case (featureFlags()['flag-case']) {}
+    @default {}
+}
+
 <p>table works!</p>
-<p>{{ featureFlags()?.['flag-a'] }}</p>
+<p>{{ featureFlags()?.['flag-z'] }}</p>
 <div (click)="onClick()"></div>
 <span [attr.aria-label]="featureFlags()['flag-aria'] ? 'label1' : 'label2'">{{ span() }}</span>

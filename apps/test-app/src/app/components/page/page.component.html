@@ -1,7 +1,6 @@
-<p>page works!</p>
-<p>{{ (featureFlags$ | async)?.['flag-a'] }}</p>
-<p>{{ flags()['flag-b'] }}</p>
-<p>{{ flags()?.['flag-c'] }}</p>
+<p>{{ flags()['flag-a'] }}</p>
+<p>{{ flags()?.['flag-b'] }}</p>
+<p>{{ (featureFlags$ | async)?.['flag-c'] }}</p>
 <div [class.active]="flags()['flag-class']"></div>
 <button (click)="onClick(flags()['flag-clicked'])">Button</button>
 <span>{{ featureFlags['flag-x'] ? 1 : 2 }}</span>
@@ -11,3 +10,9 @@
 @if (flagsForTable) {
     <app-table [featureFlags]="flagsForTable"></app-table>
 }
+
+@let flagsBS = flagBehaviorSubject | async;
+<span>{{ flagsBS?.['flag-indirect-1'] }}</span>
+
+@let flagsS = flagSubject | async;
+<span>{{ flagsS?.['flag-indirect-2'] }}</span>

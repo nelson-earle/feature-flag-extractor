@@ -1,7 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, Input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { TableComponent } from '../table/table.component';
 
 @Component({
@@ -11,15 +11,19 @@ import { TableComponent } from '../table/table.component';
     styleUrl: './page.component.css',
 })
 export class PageComponent {
-    flagSubject = new BehaviorSubject<LDFlagSet>({});
+    @Input() featureFlags: LDFlagSet = {};
+    @Input() maybeFeatureFlags: null | LDFlagSet = {};
 
-    featureFlags$ = this.flagSubject.asObservable();
+    flagBehaviorSubject = new BehaviorSubject<LDFlagSet>({});
+    flagSubject = new Subject<LDFlagSet>();
 
-    featureFlags: LDFlagSet = {};
+    featureFlags$ = this.flagBehaviorSubject.asObservable();
 
     flags = signal<LDFlagSet>({});
 
-    onClick(value: unknown): void {
-        console.log(value);
+    maybeFlags = signal<(LDFlagSet & { myFlag: string }) | null>(null);
+
+    onClick(_value: unknown): void {
+        console.log(this.maybeFlags()?.['flag-union']);
     }
 }

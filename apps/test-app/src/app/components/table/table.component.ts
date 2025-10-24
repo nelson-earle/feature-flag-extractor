@@ -18,4 +18,7 @@ export class TableComponent {
             console.log(this.featureFlags()['ts-value']);
         }
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    eat(_value: unknown): void {}
 }

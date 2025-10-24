@@ -1,0 +1,38 @@
+import * as i0 from './page.component';
+import * as i1 from '@angular/common';
+import * as i2 from '../table/table.component';
+import * as i3 from '@angular/core';
+var _pipe1 = null! as i1.AsyncPipe /*T:VAE*/;
+
+/*tcb1*/
+function _tcb1(this: i0.PageComponent) { if (true) {
+    this. /*D:ignore*/ /*T:COMPCOMP*/;
+    var _t1 = document.createElement("p") /*0,3*/;
+    "" + (((this).flags /*6,11*/() /*6,13*/)["flag-a" /*14,22*/] /*6,23*/);
+    var _t2 = document.createElement("p") /*31,34*/;
+    "" + ((0 as any ? ((this).flags /*37,42*/() /*37,44*/)!["flag-b" /*47,55*/] /*37,56*/ : undefined) /*37,56*/);
+    var _t3 = document.createElement("p") /*64,67*/;
+    "" + ((0 as any ? ((_pipe1.transform /*87,92*/(((this).featureFlags$ /*71,84*/) /*71,84*/) /*71,92*/))!["flag-c" /*96,104*/] /*70,105*/ : undefined) /*70,105*/);
+    var _t4 = document.createElement("div") /*113,157*/;
+    ((this).flags /*134,139*/() /*134,141*/)["flag-class" /*142,154*/] /*134,155*/;
+    var _t5 = document.createElement("button") /*164,215*/;
+    _t5.addEventListener /*173,178*/("click", ($event /*T:EP*/): any => { (this).onClick /*181,188*/(((this).flags /*189,194*/() /*189,196*/)["flag-clicked" /*197,211*/] /*189,212*/) /*181,213*/; }) /*172,214*/;
+    var _t6 = document.createElement("span") /*231,237*/;
+    "" + (((((this).featureFlags /*240,252*/) /*240,252*/)["flag-x" /*253,261*/] /*240,262*/ ? 1 /*265,266*/ : (2 /*269,270*/)) /*240,270*/);
+    var _t7 = document.createElement("span") /*281,287*/;
+    "" + (((0 as any ? (((this).featureFlags /*290,302*/) /*290,302*/)!["flag-y" /*305,313*/] /*290,314*/ : undefined) /*290,314*/ ? 3 /*317,318*/ : (4 /*321,322*/)) /*290,322*/);
+    const _t8 /*339,352*/ = (_pipe1.transform /*371,376*/(((this).featureFlags$ /*355,368*/) /*355,368*/) /*355,376*/) /*334,376*/;
+    if (_t8 /*383,396*/) {
+        var _t9 = document.createElement("app-table") /*404,446*/;
+        var _t10 /*T:DIR*/ /*404,446*/ = null! as i2.TableComponent /*T:VAE*/;
+        _t10.featureFlags[i3.ɵINPUT_SIGNAL_BRAND_WRITE_TYPE] /*416,428*/ = (_t8 /*431,444*/) /*415,445*/;
+    }
+    const _t11 /*467,474*/ = (_pipe1.transform /*499,504*/(((this).flagBehaviorSubject /*477,496*/) /*477,496*/) /*477,504*/) /*462,504*/;
+    var _t12 = document.createElement("span") /*506,512*/;
+    "" + ((0 as any ? (_t11 /*515,522*/)!["flag-indirect-1" /*525,542*/] /*515,543*/ : undefined) /*515,543*/);
+    const _t13 /*560,566*/ = (_pipe1.transform /*583,588*/(((this).flagSubject /*569,580*/) /*569,580*/) /*569,588*/) /*555,588*/;
+    var _t14 = document.createElement("span") /*590,596*/;
+    "" + ((0 as any ? (_t13 /*599,605*/)!["flag-indirect-2" /*608,625*/] /*599,626*/ : undefined) /*599,626*/);
+} }
+
+export const IS_A_MODULE = true;
