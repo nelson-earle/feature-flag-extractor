@@ -9,26 +9,23 @@ export function extractFeatureFlagsFromTemplate(
     templateUrl: string,
     template: string
 ): FlagRead[] {
-    const flagReads: FlagRead[] = [];
-
     const parsedTemplate = parseTemplate(template, templateUrl);
-    if (!parsedTemplate) return flagReads;
 
     const filePath = templateUrl.replace(/^file:\/\//, '');
     const filePathRelative = path.relative(projectPath, filePath);
-    const visitor = new FeatureFlagVisitor(filePathRelative, flagReads);
+    const visitor = new FeatureFlagVisitor(filePathRelative);
 
     for (const node of parsedTemplate.nodes) {
         node.visit(visitor);
     }
 
-    return flagReads;
+    return visitor.getFlagReads();
 }
 
 /**
  * Parse an Angular template into an AST
  */
-function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate | null {
+function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate {
     try {
         const parsed = ng.parseTemplate(template, templateUrl, {
             enableBlockSyntax: true,
@@ -37,25 +34,27 @@ function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate
             interpolationConfig: ng.DEFAULT_INTERPOLATION_CONFIG,
         });
         if (parsed.errors) {
-            console.error(`Failed to parse template at ${templateUrl}:`);
-            for (const error of parsed.errors) {
-                console.error(error.toString());
-            }
-            return null;
+            const errors = parsed.errors.map(e => `- ${e.toString()}`).join('\n');
+            throw new Error(`Failed to parse template: ${templateUrl}:\n${errors}`);
         }
         return parsed;
     } catch (e) {
-        console.error(`Failed to parse template at ${templateUrl}:`, e);
-        return null;
+        throw new Error(`Failed to parse template: ${templateUrl}`, { cause: e });
     }
 }
 
 class FeatureFlagVisitor extends ng.TmplAstRecursiveVisitor {
-    exprVisitor: ng.AstVisitor;
+    private flagReads: FlagRead[] = [];
 
-    constructor(filePathRelative: string, flagReads: FlagRead[]) {
+    private exprVisitor: ng.AstVisitor;
+
+    constructor(filePathRelative: string) {
         super();
-        this.exprVisitor = new FeatureFlagAstVisitor(filePathRelative, flagReads);
+        this.exprVisitor = new FeatureFlagAstVisitor(filePathRelative, this.flagReads);
+    }
+
+    getFlagReads(): FlagRead[] {
+        return this.flagReads;
     }
 
     ctx(): FeatureFlagAstVisitorContext {
