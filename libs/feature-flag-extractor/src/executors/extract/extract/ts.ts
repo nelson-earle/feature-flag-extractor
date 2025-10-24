@@ -2,19 +2,19 @@ import * as ts from 'typescript';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { FlagRead } from '.';
-import { BuilderContext } from '@angular-devkit/architect';
+import { ExecutorContext } from '@nx/devkit';
 import { extractFeatureFlagsFromTemplate } from './angular';
 
 export function extractFeatureFlagsFromTs(
-    ctx: BuilderContext,
+    ctx: ExecutorContext,
     projectPath: string,
     typeChecker: ts.TypeChecker,
     sourceFile: ts.SourceFile,
     filePath: string
 ): FlagRead[] {
-    ctx.logger.info('--------------------------------------------------');
-    ctx.logger.info(`----- ${filePath}`);
-    ctx.logger.info('--------------------------------------------------');
+    console.info('--------------------------------------------------');
+    console.info(`----- ${filePath}`);
+    console.info('--------------------------------------------------');
     const flagReads: FlagRead[] = [];
 
     const visit = (node: ts.Node): void => {
@@ -146,7 +146,7 @@ function getAngularComponentMetadataFromNodeDecorators(
  * @returns The flag ID or null if the node doesn't match our criteria.
  */
 function extractFlagFromElementAccess(
-    ctx: BuilderContext,
+    ctx: ExecutorContext,
     typeChecker: ts.TypeChecker,
     node: ts.ElementAccessExpression
 ): string | null {
@@ -186,14 +186,14 @@ function extractFlagFromElementAccess(
             flag = extractDynamicFlag(typeChecker, node.argumentExpression);
         } else if (keyTypeString !== 'string') {
             // Neither a string literal or an identifier/property read
-            ctx.logger.warn(
+            console.warn(
                 `Found read of 'LDFlagSet' with key of unsupported type: ${keyTypeString}`
             );
         }
     }
 
     if (!flag) {
-        ctx.logger.warn(`Unable to get flag ID for 'LDFlagSet' read: ${node.getText()}`);
+        console.warn(`Unable to get flag ID for 'LDFlagSet' read: ${node.getText()}`);
     }
 
     return flag;
@@ -243,7 +243,7 @@ function extractDynamicFlag(
 }
 
 function getTemplateFromComponentMetadata(
-    ctx: BuilderContext,
+    ctx: ExecutorContext,
     filePath: string,
     metadata: ts.ObjectLiteralExpression
 ): string | null {
@@ -253,7 +253,7 @@ function getTemplateFromComponentMetadata(
                 if (isStaticString(prop.initializer)) {
                     return prop.initializer.text;
                 } else {
-                    ctx.logger.warn(
+                    console.warn(
                         `Inline template is not a string literal in component: ${filePath}`
                     );
                     return null;
@@ -261,9 +261,7 @@ function getTemplateFromComponentMetadata(
                 // TODO: handle initializer that is an identifier of a constant.
             } else if (isObjectKeyAndEquals(prop.name, 'templateUrl')) {
                 if (!isStaticString(prop.initializer)) {
-                    ctx.logger.warn(
-                        `Template URL is not a string literal for component: ${filePath}`
-                    );
+                    console.warn(`Template URL is not a string literal for component: ${filePath}`);
                     return null;
                 }
                 // TODO: handle initializer that is an identifier of a constant.
@@ -279,7 +277,7 @@ function getTemplateFromComponentMetadata(
                     if (fs.existsSync(templatePath)) {
                         return fs.readFileSync(templatePath, 'utf-8');
                     } else {
-                        ctx.logger.warn(`Template file not found for component: ${filePath}`);
+                        console.warn(`Template file not found for component: ${filePath}`);
                         return null;
                     }
                 } catch (error) {

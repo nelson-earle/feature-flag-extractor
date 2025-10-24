@@ -1,0 +1,9 @@
+{
+    "executors": {
+        "extract": {
+            "description": "Extract Launch Darkly feature flags from the application templates.",
+            "implementation": "./src/executors/extract",
+            "schema": "./src/executors/extract/schema.json"
+        }
+    }
+}

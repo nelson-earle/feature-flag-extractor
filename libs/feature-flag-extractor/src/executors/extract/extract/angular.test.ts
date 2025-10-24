@@ -1,18 +1,18 @@
-import { BuilderContext } from '@angular-devkit/architect';
+import { ExecutorContext } from '@nx/devkit';
 import { extractFeatureFlagsFromTemplate } from './angular';
-import { buildBuilderContext } from '../test-utils';
+import { buildExecutorContext } from '../../../test-utils';
 import { Random } from 'random-test-values';
 import { FlagRead } from '.';
 
 describe('extractFeatureFlagsFromTemplate', () => {
-    let ctx: BuilderContext;
+    let ctx: ExecutorContext;
 
     const templateName = 'impl.html';
     const templatePath = `/${templateName}`;
     const templateUrl = `file://${templatePath}`;
 
     beforeEach(() => {
-        ctx = buildBuilderContext();
+        ctx = buildExecutorContext();
     });
 
     it('should return no entries for empty template', () => {

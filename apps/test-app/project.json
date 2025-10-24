@@ -7,8 +7,7 @@
     "tags": [],
     "targets": {
         "extract-feature-flags": {
-            "executor": "feature-flag-extractor:run",
-            "dependsOn": ["feature-flag-extractor:build"],
+            "executor": "feature-flag-extractor:extract",
             "options": {
                 "projectRoot": "apps/test-app",
                 "tsConfig": "apps/test-app/tsconfig.app.json"

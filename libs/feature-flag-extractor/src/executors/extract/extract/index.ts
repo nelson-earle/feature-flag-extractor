@@ -2,7 +2,7 @@ import * as ts from 'typescript';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { extractFeatureFlagsFromTs } from './ts';
-import { BuilderContext } from '@angular-devkit/architect';
+import { ExecutorContext } from '@nx/devkit';
 
 export interface FlagRead {
     kind: 'ts' | 'template';
@@ -13,7 +13,7 @@ export interface FlagRead {
 }
 
 export function extractFeatureFlags(
-    ctx: BuilderContext,
+    ctx: ExecutorContext,
     targetProjectPath: string,
     tsconfigPath: string
 ): FlagRead[] {

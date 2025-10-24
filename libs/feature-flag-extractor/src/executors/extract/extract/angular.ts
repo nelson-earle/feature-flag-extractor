@@ -1,17 +1,17 @@
-import { BuilderContext } from '@angular-devkit/architect';
+import { ExecutorContext } from '@nx/devkit';
 import { FlagRead } from '.';
 import * as path from 'node:path';
 import * as ng from '@angular/compiler';
 
 export function extractFeatureFlagsFromTemplate(
-    ctx: BuilderContext,
+    ctx: ExecutorContext,
     projectPath: string,
     templateUrl: string,
     template: string
 ): FlagRead[] {
     const flagReads: FlagRead[] = [];
 
-    const parsedTemplate = parseTemplate(ctx, template, templateUrl);
+    const parsedTemplate = parseTemplate(template, templateUrl);
     if (!parsedTemplate) return flagReads;
 
     const filePath = templateUrl.replace(/^file:\/\//, '');
@@ -28,11 +28,7 @@ export function extractFeatureFlagsFromTemplate(
 /**
  * Parse an Angular template into an AST
  */
-function parseTemplate(
-    ctx: BuilderContext,
-    template: string,
-    templateUrl: string
-): ng.ParsedTemplate | null {
+function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate | null {
     try {
         const parsed = ng.parseTemplate(template, templateUrl, {
             enableBlockSyntax: true,
@@ -41,9 +37,9 @@ function parseTemplate(
             interpolationConfig: ng.DEFAULT_INTERPOLATION_CONFIG,
         });
         if (parsed.errors) {
-            ctx.logger.error(`Failed to parse template at ${templateUrl}:`);
+            console.error(`Failed to parse template at ${templateUrl}:`);
             for (const error of parsed.errors) {
-                ctx.logger.error(error.toString());
+                console.error(error.toString());
             }
             return null;
         }

@@ -13,16 +13,16 @@
                 "outputPath": "dist/libs/feature-flag-extractor",
                 "main": "libs/feature-flag-extractor/src/index.ts",
                 "tsConfig": "libs/feature-flag-extractor/tsconfig.lib.json",
-                "assets": [
-                    "libs/feature-flag-extractor/builders.json",
-                    "libs/feature-flag-extractor/src/**/*.json"
-                ]
+                "assets": ["libs/feature-flag-extractor/src/**/*.json"]
             }
         },
         "lint": {
             "executor": "@nx/eslint:lint",
             "options": {
-                "lintFilePatterns": ["libs/feature-flag-extractor/**/*.ts"]
+                "lintFilePatterns": [
+                    "libs/feature-flag-extractor/**/*.ts",
+                    "libs/feature-flag-extractor/**/*.json"
+                ]
             }
         },
         "test": {

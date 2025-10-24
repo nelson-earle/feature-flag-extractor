@@ -2,5 +2,13 @@
     "name": "feature-flag-extractor",
     "version": "0.1.0",
     "type": "module",
-    "builders": "./builders.json"
+    "executors": "./executors.json",
+    "dependencies": {
+        "@angular/compiler": "*",
+        "@angular/language-service": "*",
+        "@nx/devkit": "*",
+        "jest-preset-angular": "*",
+        "tslib": "*",
+        "typescript": "*"
+    }
 }

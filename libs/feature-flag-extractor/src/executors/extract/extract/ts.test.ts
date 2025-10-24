@@ -6,22 +6,22 @@ jest.mock('node:fs', () => ({
 jest.mock('./angular', () => ({ extractFeatureFlagsFromTemplate: jest.fn(() => []) }));
 
 import { extractFeatureFlagsFromTs } from './ts';
-import { BuilderContext } from '@angular-devkit/architect';
+import { ExecutorContext } from '@nx/devkit';
 import * as ts from 'typescript';
 import { Random } from 'random-test-values';
 import { FlagRead } from '.';
 import { extractFeatureFlagsFromTemplate } from './angular';
 import * as fs from 'node:fs';
-import { buildBuilderContext } from '../test-utils';
+import { buildExecutorContext } from '../../../test-utils';
 
 interface TestHost {
-    ctx: BuilderContext;
+    ctx: ExecutorContext;
     program: ts.Program;
     typeChecker: ts.TypeChecker;
 }
 
 function buildTestHost(files: Record<string, string>): TestHost {
-    const ctx = buildBuilderContext();
+    const ctx = buildExecutorContext();
 
     const hostFiles = { ...files };
 

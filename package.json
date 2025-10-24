@@ -29,6 +29,7 @@
         "@nx/eslint-plugin": "21.2.2",
         "@nx/jest": "21.2.2",
         "@nx/js": "21.2.2",
+        "@nx/plugin": "21.2.2",
         "@nx/web": "21.2.2",
         "@schematics/angular": "^19.2.15",
         "@swc-node/register": "~1.9.1",

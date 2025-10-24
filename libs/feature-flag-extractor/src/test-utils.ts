@@ -1,9 +1,19 @@
-import { BuilderContext } from '@angular-devkit/architect';
+import { ExecutorContext } from '@nx/devkit';
+import process from 'node:process';
 
-export function buildBuilderContext(): BuilderContext {
-    const ctx = { logger: {} } as BuilderContext;
-    for (const method of ['fatal', 'error', 'warn', 'info', 'log', 'debug']) {
-        ctx.logger[method] = jest.fn();
-    }
-    return ctx;
+export function buildExecutorContext(): ExecutorContext {
+    return {
+        root: '/',
+        cwd: process.cwd(),
+        isVerbose: false,
+        projectGraph: {
+            dependencies: {},
+            nodes: {},
+        },
+        projectsConfigurations: {
+            projects: {},
+            version: 2,
+        },
+        nxJsonConfiguration: {},
+    };
 }
