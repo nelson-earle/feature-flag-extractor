@@ -28,13 +28,13 @@ export function extractFeatureFlagsFromTs(
                     node.getStart()
                 );
                 const relativePath = path.relative(projectPath, sourceFile.fileName);
-                // flagReads.push({
-                //     kind: 'ts',
-                //     filePathRelative: relativePath,
-                //     row: line,
-                //     col: character + 1,
-                //     flagId: flag,
-                // });
+                flagReads.push({
+                    kind: 'ts',
+                    filePathRelative: relativePath,
+                    row: line,
+                    col: character + 1,
+                    flagId: flag,
+                });
             }
         } else if (ts.isClassDeclaration(node)) {
             const decoratorArg = getAngularComponentMetadataFromDecorators(node);

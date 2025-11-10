@@ -27,6 +27,7 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     }
 
     console.log(flagReads.length);
+    console.assert(flagReads.length === 18, `unexpected number of flags ${flagReads.length}`);
 
     return { success: true };
 };
