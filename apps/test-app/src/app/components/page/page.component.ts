@@ -3,10 +3,11 @@ import { CommonModule } from '@angular/common';
 import { LDFlagSet } from 'launchdarkly-js-client-sdk';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { TableComponent } from '../table/table.component';
+import { PageInnerComponent } from '../page-inner/page-inner.component';
 
 @Component({
     selector: 'app-page',
-    imports: [CommonModule, TableComponent],
+    imports: [CommonModule, TableComponent, PageInnerComponent],
     templateUrl: './page.component.html',
     styleUrl: './page.component.css',
 })
