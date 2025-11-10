@@ -5,6 +5,7 @@ import { FlagRead } from '.';
 import { ExecutorContext } from '@nx/devkit';
 import { extractFeatureFlagsFromTemplate } from './angular';
 import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
+import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from '../ts-util';
 
 export function extractFeatureFlagsFromTs(
     ctx: ExecutorContext,
@@ -16,7 +17,6 @@ export function extractFeatureFlagsFromTs(
 ): FlagRead[] {
     console.info('--------------------------------------------------');
     console.info(`----- ${filePath}`);
-    console.info('--------------------------------------------------');
     const flagReads: FlagRead[] = [];
 
     const visit = (node: ts.Node): void => {
@@ -37,12 +37,12 @@ export function extractFeatureFlagsFromTs(
                 // });
             }
         } else if (ts.isClassDeclaration(node)) {
-            const decoratorArg = getAngularComponentMetadataFromNodeDecorators(node);
+            const decoratorArg = getAngularComponentMetadataFromDecorators(node);
             if (decoratorArg) {
                 const template = getTemplateFromComponentMetadata(ctx, filePath, decoratorArg);
                 if (template) {
                     const templateUrl = `file://${template.path}`;
-                    console.log(`OFFSET=${template.offset}, TEMPLATE=${template.path}`);
+                    console.log(`----- TEMPLATE: ${template.path} (offset=${template.offset})`);
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
                         ctx.root,
@@ -65,7 +65,7 @@ export function extractFeatureFlagsFromTs(
     return flagReads;
 }
 
-function getAngularComponentMetadataFromNodeDecorators(
+function getAngularComponentMetadataFromDecorators(
     classDecl: ts.HasDecorators
 ): ts.ObjectLiteralExpression | null {
     const decorators = ts.getDecorators(classDecl) ?? [];
@@ -141,14 +141,6 @@ function extractFlagFromElementAccess(
     }
 
     return flag;
-}
-
-function typeContainsSymbol(typeChecker: ts.TypeChecker, type: ts.Type, symbol: string): boolean {
-    if (type.isUnionOrIntersection()) {
-        return type.types.some(t => typeContainsSymbol(typeChecker, t, symbol));
-    } else {
-        return type.getSymbol()?.name === symbol;
-    }
 }
 
 /**
@@ -240,14 +232,4 @@ function getTemplateFromComponentMetadata(
     }
 
     return null;
-}
-
-function isStaticString(
-    node: ts.Node
-): node is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
-    return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
-}
-
-function isObjectKeyAndEquals(node: ts.PropertyName, value: string): boolean {
-    return (ts.isIdentifier(node) || ts.isStringLiteral(node)) && node.text === value;
 }
