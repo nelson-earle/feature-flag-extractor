@@ -46,8 +46,8 @@ export function extractFeatureFlagsFromTs(
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
                         ctx.root,
+                        typeChecker,
                         ngTemplateTypeResolver,
-                        sourceFile,
                         templateUrl,
                         template.content,
                         template.offset

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as ng from '@angular/compiler';
 import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
 import * as ts from 'typescript';
+import { typeContainsSymbol } from '../ts-util';
 
 interface TemplateKeyedRead {
     receiverStart: number;
@@ -14,8 +15,8 @@ interface TemplateKeyedRead {
 export function extractFeatureFlagsFromTemplate(
     ctx: ExecutorContext,
     rootPath: string,
+    typeChecker: ts.TypeChecker,
     templateTypeResolver: AngularTemplateTypeResolver,
-    sourceFile: ts.SourceFile,
     templateUrl: string,
     template: string,
     templateOffset: number
@@ -30,19 +31,35 @@ export function extractFeatureFlagsFromTemplate(
         node.visit(visitor);
     }
 
+    const keyedReads: FlagRead[] = [];
+
     for (const keyedRead of visitor.getKeyedReads()) {
         console.log(
             `KEYED READ: ${template.slice(keyedRead.receiverStart, keyedRead.receiverEnd)}`
         );
-        templateTypeResolver.resolveType(
+        const receiverType = templateTypeResolver.resolveType(
             filePathRelative,
             templateOffset + keyedRead.receiverStart,
             templateOffset + keyedRead.receiverEnd
         );
-        // TODO: check that resolved type of keyed read receiver is an LDFlagSet-like
+        const receiverTypeContainsLDFlagSet = typeContainsSymbol(
+            typeChecker,
+            receiverType,
+            'LDFlagSet'
+        );
+        if (receiverTypeContainsLDFlagSet) {
+            // TODO: convert offset into correct row & col
+            keyedReads.push({
+                kind: 'template',
+                filePathRelative,
+                row: 0,
+                col: templateOffset + keyedRead.receiverStart,
+                flagId: keyedRead.flagId,
+            });
+        }
     }
 
-    return [];
+    return keyedReads;
 }
 
 /**

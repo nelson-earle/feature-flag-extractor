@@ -15,9 +15,5 @@ export function typeContainsSymbol(
     type: ts.Type,
     symbol: string
 ): boolean {
-    if (type.isUnionOrIntersection()) {
-        return type.types.some(t => typeContainsSymbol(typeChecker, t, symbol));
-    } else {
-        return type.getSymbol()?.name === symbol;
-    }
+    return typeChecker.typeToString(type).includes(symbol);
 }

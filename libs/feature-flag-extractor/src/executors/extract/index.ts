@@ -17,6 +17,9 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
         return { success: false };
     }
 
+    console.log();
+    console.log('======================================================================');
+
     for (const read of flagReads) {
         const line = read.row + 1;
         const char = read.col + 1;
