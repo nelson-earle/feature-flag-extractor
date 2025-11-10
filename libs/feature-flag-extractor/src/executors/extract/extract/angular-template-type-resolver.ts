@@ -40,6 +40,8 @@ const logDiagnostic = (d: ts.Diagnostic) => {
 };
 
 export class AngularTemplateTypeResolver {
+    private rootPath: string;
+
     private tsServerHost: ts.server.ServerHost;
     private tsLogger: TsLogger;
     private tsProjectService: ts.server.ProjectService;
@@ -47,7 +49,9 @@ export class AngularTemplateTypeResolver {
     private tsLanguageService: ts.LanguageService;
     private ngLanguageService: NgLanguageService;
 
-    constructor(tsConfigPath: string, tsConfig: ts.ParsedCommandLine) {
+    constructor(rootPath: string, tsConfigPath: string, tsConfig: ts.ParsedCommandLine) {
+        this.rootPath = rootPath;
+
         if (!ts.sys.watchFile)
             throw new Error('typescript library does not support required method: watchFile');
         if (!ts.sys.watchDirectory)
@@ -129,6 +133,8 @@ export class AngularTemplateTypeResolver {
         const angularLanguageServiceFactory = angularLanguageServicePluginFactory({
             typescript: ts,
         });
+
+        // Create the Angular Language Service with only the expected parameters
         const ngLanguageService = angularLanguageServiceFactory.create({
             serverHost: this.tsServerHost,
             project: tsProject,
@@ -146,42 +152,161 @@ export class AngularTemplateTypeResolver {
         }
     }
 
-    resolveType(templateFileName: string, position: number): void {
-        const definitions = this.ngLanguageService.getDefinitionAtPosition(
-            templateFileName,
-            position
-        );
-        if (!definitions) {
-            console.info(`[NO DEFS FOUND FROM TEMPLATE]`);
-            return;
+    resolveType(templateFileName: string, position: number, positionEnd: number): ts.Type {
+        // Convert relative path to absolute if needed
+        const absoluteTemplatePath = path.isAbsolute(templateFileName)
+            ? templateFileName
+            : path.resolve(this.rootPath, templateFileName);
+
+        // Derive the component file path from the template path
+        const absoluteComponentPath = absoluteTemplatePath.replace(/\.html$/, '.ts');
+        if (!fs.existsSync(absoluteComponentPath)) {
+            throw new Error(`not found: ${absoluteComponentPath}`);
         }
 
-        console.info(`[DEFS FROM TEMPLATE]: ${templateFileName}`);
-        for (const def of definitions) {
-            console.info(
-                `-- def: ${def.fileName}:${def.textSpan.start}-${def.textSpan.start + def.textSpan.length}`
-            );
-            const defSourceFile = this.program.getSourceFile(def.fileName);
-            if (!defSourceFile) {
-                console.warn(`Failed to find source file for template definition: ${def.fileName}`);
-                continue;
-            }
-            const visitDefSource = (node: ts.Node): ts.Node | null => {
-                if (node.pos <= def.textSpan.start && def.textSpan.start < node.end) {
-                    return ts.forEachChild(node, visitDefSource) || node;
-                }
-                return null;
-            };
-            const defNode = ts.forEachChild(defSourceFile, visitDefSource);
-            if (!defNode) {
-                console.warn(
-                    `Failed to find node in source file that contains definition: ${def.fileName}`
-                );
-                continue;
-            }
-            const defType = this.typeChecker.getTypeAtLocation(defNode);
-            const defTypeString = this.typeChecker.typeToString(defType);
-            console.info(`${defNode.getText()} // ${defTypeString}`);
+        // Open the component file so the language service knows about it
+        // console.info(`--- ${absoluteComponentPath}`);
+        const componentResult = this.tsProjectService.openClientFile(
+            absoluteComponentPath,
+            undefined, // fileContent - let it read from disk
+            ts.ScriptKind.TS
+        );
+        if (componentResult.configFileErrors && componentResult.configFileErrors.length > 0) {
+            console.warn(`Config file errors when opening component: ${absoluteComponentPath}`);
+            componentResult.configFileErrors.forEach(logDiagnostic);
         }
+
+        // TODO: check if debug logging enabled
+        if (typeof (componentResult as unknown) === 'string') {
+            try {
+                const content = fs.readFileSync(absoluteTemplatePath, 'utf8');
+
+                const beforePos = content.slice(0, position);
+                const startOfLineAtPos = beforePos.match(/.*(\r\n|\n|\r)/s)?.[0].length ?? 0;
+
+                const afterPos = content.slice(position);
+                const firstEolAfterPos = afterPos.match(/\r\n|\n|\r/)?.index;
+                const endOfLineAtPos = firstEolAfterPos && position + firstEolAfterPos;
+
+                const lineAtPos = content.slice(startOfLineAtPos, endOfLineAtPos);
+                console.info(`│${lineAtPos}`);
+                console.info('│' + ' '.repeat(position - startOfLineAtPos) + '^');
+            } catch (e) {
+                throw new Error(`Failed to read file: ${absoluteTemplatePath}`, { cause: e });
+            }
+        }
+
+        // Use getTcb to get the Type Check Block and position mappings
+        // TODO: cache TCB
+        const tcbResponse = this.ngLanguageService.getTcb(absoluteTemplatePath, position);
+
+        if (!tcbResponse) {
+            throw new Error(
+                `TCB not found for template: ${absoluteTemplatePath} (position=${position})`
+            );
+        }
+
+        console.info(`  TCB file: ${tcbResponse.fileName}`);
+        console.info(`  Selections: ${tcbResponse.selections.length}`);
+
+        const program = this.ngLanguageService.getProgram();
+        if (!program) {
+            throw new Error(`Failed to get the program of the NgLanguageService`);
+        }
+
+        // Check if the language service knows about the TCB file
+        const tcbSourceFile = program.getSourceFile(tcbResponse.fileName);
+
+        if (!tcbSourceFile) {
+            console.warn(`    TCB source file not found in program: ${tcbResponse.fileName}`);
+            console.warn(
+                `    This is likely because the shim file hasn't been registered with the project`
+            );
+
+            // Try to see what files the program knows about
+            const sourceFiles = program.getSourceFiles() ?? [];
+            const shimFiles = sourceFiles.filter(f => f.fileName.endsWith('.ngtypecheck.ts'));
+            console.warn(`    Program has ${shimFiles.length} shim files`);
+            throw new Error(`TCB source file not found in program: ${tcbResponse.fileName}`);
+        }
+
+        const typeChecker = program.getTypeChecker();
+
+        // Find what node is at the selection position
+        const findNodeAtPosition = (node: ts.Node, pos: number): ts.Node | undefined => {
+            if (pos < node.pos || pos >= node.end) {
+                return undefined;
+            }
+            const child = ts.forEachChild(node, child => findNodeAtPosition(child, pos));
+            return child || node;
+        };
+
+        // For each selection (position in TCB that maps to our template position)
+        for (const selection of tcbResponse.selections) {
+            // console.info(
+            //     `  Selection at TCB position ${selection.start}-${selection.start + selection.length}:`
+            // );
+
+            const nodeAtSelection = findNodeAtPosition(tcbSourceFile, selection.start);
+            if (!nodeAtSelection) {
+                throw new Error(
+                    `Unable to find node in TCB source file that contains position selection starting at ${selection.start}`
+                );
+            }
+
+            const nodeText = nodeAtSelection.getText(tcbSourceFile);
+            console.info(
+                `    Node at selection (${ts.SyntaxKind[nodeAtSelection.kind]}): "${nodeText.substring(0, 100)}${nodeText.length > 100 ? '...' : ''}"`
+            );
+
+            const type = typeChecker.getTypeAtLocation(nodeAtSelection);
+            console.info(`      Type: ${typeChecker.typeToString(type)}`);
+            return type;
+        }
+
+        // console.info('No selections found, falling back to TCB parsing...');
+
+        // TODO: cache TCB expression source map
+        const templateExpressionSourceMap: Record<string, ts.Node> = {};
+
+        const TCB_SOURCE_MAP_COMMENT_RE = /^\/\*(\d+,\d+)\*\/$/;
+
+        const parseCommentRanges = (
+            sourceFile: ts.SourceFile,
+            node: ts.Node,
+            nodeCommentRanges: ts.CommentRange[]
+        ): void => {
+            for (const commentRange of nodeCommentRanges) {
+                const text = sourceFile.text.substring(commentRange.pos, commentRange.end);
+                const sourceMapComment = text.match(TCB_SOURCE_MAP_COMMENT_RE);
+                if (sourceMapComment) {
+                    templateExpressionSourceMap[sourceMapComment[1]] = node;
+                }
+            }
+        };
+
+        const parseTcbComments = (node: ts.Node) => {
+            const commentRanges = ts.getTrailingCommentRanges(tcbSourceFile.text, node.getEnd());
+            if (commentRanges) {
+                parseCommentRanges(tcbSourceFile, node, commentRanges);
+            }
+            ts.forEachChild(node, parseTcbComments);
+        };
+
+        ts.forEachChild(tcbSourceFile, parseTcbComments);
+
+        const node = templateExpressionSourceMap[`${position},${positionEnd}`];
+        if (node) {
+            const type = typeChecker.getTypeAtLocation(node);
+            console.info(`  Node parsed for template position: ${node.getFullText()}`);
+            console.info(`    Type: ${typeChecker.typeToString(type)}`);
+            return type;
+        } else {
+            console.info(`  NO NODE FOUND AT ${position},${positionEnd}`);
+        }
+
+        throw new Error(
+            `Unable to resolve type at position ${position} in template: ${absoluteTemplatePath}`
+        );
     }
 }

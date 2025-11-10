@@ -2,24 +2,47 @@ import { ExecutorContext } from '@nx/devkit';
 import { FlagRead } from '.';
 import * as path from 'node:path';
 import * as ng from '@angular/compiler';
+import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
+import * as ts from 'typescript';
+
+interface TemplateKeyedRead {
+    receiverStart: number;
+    receiverEnd: number;
+    flagId: string;
+}
 
 export function extractFeatureFlagsFromTemplate(
     ctx: ExecutorContext,
-    projectPath: string,
+    rootPath: string,
+    templateTypeResolver: AngularTemplateTypeResolver,
+    sourceFile: ts.SourceFile,
     templateUrl: string,
-    template: string
+    template: string,
+    templateOffset: number
 ): FlagRead[] {
     const parsedTemplate = parseTemplate(template, templateUrl);
 
     const filePath = templateUrl.replace(/^file:\/\//, '');
-    const filePathRelative = path.relative(projectPath, filePath);
-    const visitor = new FeatureFlagVisitor(filePathRelative);
+    const filePathRelative = path.relative(rootPath, filePath);
+    const visitor = new FeatureFlagVisitor();
 
     for (const node of parsedTemplate.nodes) {
         node.visit(visitor);
     }
 
-    return visitor.getFlagReads();
+    for (const keyedRead of visitor.getKeyedReads()) {
+        console.log(
+            `KEYED READ: ${template.slice(keyedRead.receiverStart, keyedRead.receiverEnd)}`
+        );
+        templateTypeResolver.resolveType(
+            filePathRelative,
+            templateOffset + keyedRead.receiverStart,
+            templateOffset + keyedRead.receiverEnd
+        );
+        // TODO: check that resolved type of keyed read receiver is an LDFlagSet-like
+    }
+
+    return [];
 }
 
 /**
@@ -27,6 +50,7 @@ export function extractFeatureFlagsFromTemplate(
  */
 function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate {
     try {
+        // TODO: take the absolute template file path as an arg and turn it into a URL here
         const parsed = ng.parseTemplate(template, templateUrl, {
             enableBlockSyntax: true,
             enableLetSyntax: true,
@@ -44,17 +68,17 @@ function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate
 }
 
 class FeatureFlagVisitor extends ng.TmplAstRecursiveVisitor {
-    private flagReads: FlagRead[] = [];
+    private keyedReads: TemplateKeyedRead[] = [];
 
     private exprVisitor: ng.AstVisitor;
 
-    constructor(filePathRelative: string) {
+    constructor() {
         super();
-        this.exprVisitor = new FeatureFlagAstVisitor(filePathRelative, this.flagReads);
+        this.exprVisitor = new FeatureFlagAstVisitor(this.keyedReads);
     }
 
-    getFlagReads(): FlagRead[] {
-        return this.flagReads;
+    getKeyedReads(): TemplateKeyedRead[] {
+        return this.keyedReads;
     }
 
     ctx(): FeatureFlagAstVisitorContext {
@@ -164,24 +188,20 @@ type FeatureFlagAstVisitorContext = unknown;
 type FeatureFlagAstVisitorResult = void;
 
 class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
-    private readonly filePathRelative: string;
-    private readonly flagReads: FlagRead[];
+    private readonly keyedReads: TemplateKeyedRead[];
 
-    constructor(filePathRelative: string, flagReads: FlagRead[]) {
+    constructor(keyedReads: TemplateKeyedRead[]) {
         super();
-        this.filePathRelative = filePathRelative;
-        this.flagReads = flagReads;
+        this.keyedReads = keyedReads;
     }
 
-    private addFlagRead(ast: ng.AST, flagId: string) {
-        const strippedFlagId = flagId.replace(/["']/g, '');
+    private addKeyedRead(receiver: ng.AST, key: string) {
+        const strippedFlagId = key.replace(/["']/g, '');
         // TODO: fix span location to be the actual row/col in the source instead of byte offset
         // start/end.
-        this.flagReads.push({
-            kind: 'template',
-            filePathRelative: this.filePathRelative,
-            row: ast.sourceSpan.start,
-            col: ast.sourceSpan.end,
+        this.keyedReads.push({
+            receiverStart: receiver.sourceSpan.start,
+            receiverEnd: receiver.sourceSpan.end,
             flagId: strippedFlagId,
         });
     }
@@ -197,22 +217,8 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         ast: ng.KeyedRead,
         ctx: FeatureFlagAstVisitorContext
     ): FeatureFlagAstVisitorResult {
-        let flagId: string | null = null;
-
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            if (ast.receiver instanceof ng.PropertyRead) {
-                flagId = ast.key.value;
-            } else if (ast.receiver instanceof ng.Call) {
-                const callReceiver = ast.receiver.receiver;
-                if (callReceiver instanceof ng.PropertyRead) {
-                    flagId = ast.key.value;
-                }
-            }
-        }
-
-        if (flagId) {
-            // TODO: check if the receiver is in the flag properties set
-            this.addFlagRead(ast, flagId);
+            this.addKeyedRead(ast.receiver, ast.key.value);
         } else {
             super.visitKeyedRead(ast, ctx);
         }
@@ -229,22 +235,8 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         ast: ng.SafeKeyedRead,
         ctx: FeatureFlagAstVisitorContext
     ): FeatureFlagAstVisitorResult {
-        let flagId: string | null = null;
-
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            if (ast.receiver instanceof ng.PropertyRead) {
-                flagId = ast.key.value;
-            } else if (ast.receiver instanceof ng.Call) {
-                const callReceiver = ast.receiver.receiver;
-                if (callReceiver instanceof ng.PropertyRead) {
-                    flagId = ast.key.value;
-                }
-            }
-        }
-
-        if (flagId) {
-            // TODO: check if the receiver is in the flag properties set
-            this.addFlagRead(ast, flagId);
+            this.addKeyedRead(ast.receiver, ast.key.value);
         } else {
             super.visitSafeKeyedRead(ast, ctx);
         }

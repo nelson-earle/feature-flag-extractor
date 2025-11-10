@@ -48,13 +48,15 @@ export function extractFeatureFlags(
 
     const typeChecker = program.getTypeChecker();
 
-    const templateFileName = path.resolve(
-        'apps/test-app/src/app/components/page-inner/page-inner.component.ts'
-    );
-    const position = /* template start */ 244 + /* node offset */ 7;
+    const ngTypeResolver = new AngularTemplateTypeResolver(ctx.root, tsconfigPath, tsConfig);
 
-    const ngTypeResolver = new AngularTemplateTypeResolver(tsconfigPath, tsConfig);
-    ngTypeResolver.resolveType(templateFileName, position);
+    // const templateFileName = 'apps/test-app/src/app/components/page/page.component.html';
+    // // const position = /* beginning of `featureFlags | async` */ 355;
+    // // const position = /* beginning of `flagsForTable` */ 355 - 16;
+    // // const position = /* beginning of `@let` */ 355 - 16 - 5;
+    // const position = 515;
+    // ngTypeResolver.resolveType(templateFileName, position, position + 7);
+    // return [];
 
     const flagReads: FlagRead[] = [];
 
@@ -74,6 +76,7 @@ export function extractFeatureFlags(
                 ctx,
                 targetProjectPath,
                 typeChecker,
+                ngTypeResolver,
                 sourceFile,
                 sourceFile.fileName
             )

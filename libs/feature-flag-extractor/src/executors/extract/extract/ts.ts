@@ -4,11 +4,13 @@ import * as path from 'node:path';
 import { FlagRead } from '.';
 import { ExecutorContext } from '@nx/devkit';
 import { extractFeatureFlagsFromTemplate } from './angular';
+import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
 
 export function extractFeatureFlagsFromTs(
     ctx: ExecutorContext,
     projectPath: string,
     typeChecker: ts.TypeChecker,
+    ngTemplateTypeResolver: AngularTemplateTypeResolver,
     sourceFile: ts.SourceFile,
     filePath: string
 ): FlagRead[] {
@@ -26,29 +28,29 @@ export function extractFeatureFlagsFromTs(
                     node.getStart()
                 );
                 const relativePath = path.relative(projectPath, sourceFile.fileName);
-                flagReads.push({
-                    kind: 'ts',
-                    filePathRelative: relativePath,
-                    row: line,
-                    col: character + 1,
-                    flagId: flag,
-                });
+                // flagReads.push({
+                //     kind: 'ts',
+                //     filePathRelative: relativePath,
+                //     row: line,
+                //     col: character + 1,
+                //     flagId: flag,
+                // });
             }
         } else if (ts.isClassDeclaration(node)) {
-            const flagProps = getFlagSetsFromComponentClassDeclaration(typeChecker, node);
-            for (const prop of flagProps.values()) {
-                console.log(`--- PROP [${prop.kind.padStart(8, ' ')}] ${prop.name}: ${prop.type}`);
-            }
             const decoratorArg = getAngularComponentMetadataFromNodeDecorators(node);
             if (decoratorArg) {
                 const template = getTemplateFromComponentMetadata(ctx, filePath, decoratorArg);
                 if (template) {
-                    const templateUrl = `file://${filePath}`;
+                    const templateUrl = `file://${template.path}`;
+                    console.log(`OFFSET=${template.offset}, TEMPLATE=${template.path}`);
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
-                        projectPath,
+                        ctx.root,
+                        ngTemplateTypeResolver,
+                        sourceFile,
                         templateUrl,
-                        template
+                        template.content,
+                        template.offset
                     );
                     flagReads.push(...templateFlagReads);
                 }
@@ -61,64 +63,6 @@ export function extractFeatureFlagsFromTs(
     ts.forEachChild(sourceFile, visit);
 
     return flagReads;
-}
-
-interface FeatureFlagProperty {
-    kind: 'property' | 'method' | 'async';
-    name: string;
-    type: string;
-}
-
-const ASYNC_PIPABLE_LDFLAGSET_RE =
-    /^(Observable|Subscribable|BehaviorSubject|Subject|PromiseLike|Promise)<LDFlagSet>$/;
-
-function getFlagSetsFromComponentClassDeclaration(
-    typeChecker: ts.TypeChecker,
-    classDecl: ts.ClassDeclaration
-): Map<string, FeatureFlagProperty> {
-    const classType = typeChecker.getTypeAtLocation(classDecl);
-
-    const flagSetProperties = new Map<string, FeatureFlagProperty>();
-
-    for (const field of classType.getProperties()) {
-        const type = typeChecker.getTypeOfSymbolAtLocation(field, classDecl);
-        const typeString = typeChecker.typeToString(type);
-
-        if (typeString === 'LDFlagSet') {
-            // Property is a flag set.
-            flagSetProperties.set(field.name, {
-                kind: 'property',
-                name: field.name,
-                type: typeString,
-            });
-        } else if (ASYNC_PIPABLE_LDFLAGSET_RE.test(typeString)) {
-            // Property is an async-pipable flag set.
-            flagSetProperties.set(field.name, {
-                kind: 'async',
-                name: field.name,
-                type: typeString,
-            });
-        } else {
-            const signatures = type.getCallSignatures();
-            if (signatures.length > 0) {
-                // Property is function-like.
-                for (const sig of signatures) {
-                    const returnType = sig.getReturnType();
-                    const returnTypeString = typeChecker.typeToString(returnType);
-                    if (returnTypeString === 'LDFlagSet') {
-                        flagSetProperties.set(field.name, {
-                            kind: 'method',
-                            name: field.name,
-                            type: typeString,
-                        });
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    return flagSetProperties;
 }
 
 function getAngularComponentMetadataFromNodeDecorators(
@@ -246,12 +190,16 @@ function getTemplateFromComponentMetadata(
     ctx: ExecutorContext,
     filePath: string,
     metadata: ts.ObjectLiteralExpression
-): string | null {
+): { path: string; content: string; offset: number } | null {
     for (const prop of metadata.properties) {
         if (ts.isPropertyAssignment(prop)) {
             if (isObjectKeyAndEquals(prop.name, 'template')) {
                 if (isStaticString(prop.initializer)) {
-                    return prop.initializer.text;
+                    const beforeTemplate = prop.initializer
+                        .getFullText()
+                        .replace(/^(\s*['"`]).*/s, '$1');
+                    const offset = prop.initializer.getFullStart() + beforeTemplate.length;
+                    return { path: filePath, content: prop.initializer.text, offset };
                 } else {
                     console.warn(
                         `Inline template is not a string literal in component: ${filePath}`
@@ -275,7 +223,8 @@ function getTemplateFromComponentMetadata(
 
                     // TODO: just try to read and detect ENOTFOUND
                     if (fs.existsSync(templatePath)) {
-                        return fs.readFileSync(templatePath, 'utf-8');
+                        const content = fs.readFileSync(templatePath, 'utf-8');
+                        return { path: templatePath, content, offset: 0 };
                     } else {
                         console.warn(`Template file not found for component: ${filePath}`);
                         return null;
