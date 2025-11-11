@@ -2,7 +2,7 @@ import * as ts from 'typescript';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { extractFeatureFlagsFromTs } from './ts';
-import { ExecutorContext } from '@nx/devkit';
+import { Context } from '../context';
 import { ProjectService } from './project-service';
 
 export interface FlagRead {
@@ -14,7 +14,7 @@ export interface FlagRead {
 }
 
 export function extractFeatureFlags(
-    ctx: ExecutorContext,
+    ctx: Context,
     targetProjectPath: string,
     tsConfigPath: string
 ): FlagRead[] {
@@ -43,7 +43,7 @@ export function extractFeatureFlags(
     // Load the config
     const tsConfig = loadTsConfig(tsConfigPath);
 
-    const projectService = new ProjectService(ctx.root, tsConfigPath, tsConfig);
+    const projectService = new ProjectService(ctx, tsConfigPath, tsConfig);
 
     const program = projectService.getProgram();
 

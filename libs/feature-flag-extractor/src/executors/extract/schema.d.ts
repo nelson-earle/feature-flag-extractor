@@ -1,5 +1,7 @@
 export interface Options {
     projectRoot: string;
     tsConfig: string;
-    verbose: boolean | null;
+    logLevel?: OptionsLogLevel;
 }
+
+export type OptionsLogLevel = 'error' | 'warn' | 'info' | 'debug';

@@ -1,11 +1,17 @@
 import type { PromiseExecutor, ExecutorContext } from '@nx/devkit';
 import type { Options } from './schema';
 import { extractFeatureFlags, FlagRead } from './extract';
+import { Logger, optionLogLevelToLogLevel } from './logger';
+import { Context } from './context';
 
 const extractFeatureFlagsExecutor: PromiseExecutor = async (
     options: Options,
-    ctx: ExecutorContext
+    executorCtx: ExecutorContext
 ) => {
+    const logLevel = optionLogLevelToLogLevel(options.logLevel);
+    const logger = new Logger(logLevel);
+    const ctx: Context = { ...executorCtx, logger };
+
     const flagReads: FlagRead[] = [];
 
     try {
@@ -16,9 +22,6 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
         console.error(error);
         return { success: false };
     }
-
-    console.log();
-    console.log('======================================================================');
 
     for (const read of flagReads) {
         const line = read.row + 1;

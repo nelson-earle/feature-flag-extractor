@@ -3,44 +3,14 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { isNgLanguageService, NgLanguageService } from '@angular/language-service/api';
 import { TsLogger } from './ts-logger';
+import { Context } from '../context';
+import { LogLevel, Logger } from '../logger';
 
 const angularLanguageServicePluginFactory: ts.server.PluginModuleFactory = require('@angular/language-service');
 
-const logDiagnosticMessage = (category: ts.DiagnosticCategory, message: string) => {
-    switch (category) {
-        case ts.DiagnosticCategory.Error:
-            console.error(message);
-            break;
-        case ts.DiagnosticCategory.Warning:
-            console.warn(message);
-            break;
-        case ts.DiagnosticCategory.Message:
-        case ts.DiagnosticCategory.Suggestion:
-            console.info(message);
-            break;
-    }
-};
-
-const logDiagnosticMessageChain = (chain: ts.DiagnosticMessageChain, indent = '') => {
-    logDiagnosticMessage(chain.category, chain.messageText);
-    if (chain.next) {
-        const nextIndent = '    ' + indent;
-        for (const next of chain.next) {
-            logDiagnosticMessageChain(next, nextIndent);
-        }
-    }
-};
-
-const logDiagnostic = (d: ts.Diagnostic) => {
-    if (typeof d.messageText === 'string') {
-        logDiagnosticMessage(d.category, d.messageText);
-    } else {
-        logDiagnosticMessageChain(d.messageText);
-    }
-};
-
 export class ProjectService {
     private rootPath: string;
+    private logger: Logger;
 
     private tsServerHost: ts.server.ServerHost;
     private tsLogger: TsLogger;
@@ -49,8 +19,9 @@ export class ProjectService {
     private tsLanguageService: ts.LanguageService;
     private ngLanguageService: NgLanguageService;
 
-    constructor(rootPath: string, tsConfigPath: string, tsConfig: ts.ParsedCommandLine) {
-        this.rootPath = rootPath;
+    constructor(ctx: Context, tsConfigPath: string, tsConfig: ts.ParsedCommandLine) {
+        this.rootPath = ctx.root;
+        this.logger = ctx.logger;
 
         if (!ts.sys.watchFile)
             throw new Error('typescript library does not support required method: watchFile');
@@ -109,7 +80,9 @@ export class ProjectService {
 
         const openFileResult = this.tsProjectService.openClientFile(fileName);
         if (openFileResult.configFileErrors) {
-            openFileResult.configFileErrors.forEach(logDiagnostic);
+            for (const d of openFileResult.configFileErrors) {
+                this.logDiagnostic(d, LogLevel.DEBUG);
+            }
         }
         if (!openFileResult.configFileName) {
             throw new Error(`No config file for ${fileName}`);
@@ -166,6 +139,52 @@ export class ProjectService {
         return typeChecker;
     }
 
+    // TODO: ignore `logLevel` if diagnostic category is `Error`
+    private logDiagnostic = (d: ts.Diagnostic, logLevel: LogLevel | null = null): void => {
+        if (typeof d.messageText === 'string') {
+            this.logDiagnosticMessage(d.category, d.messageText, logLevel);
+        } else {
+            this.logDiagnosticMessageChain(d.messageText);
+        }
+    };
+
+    private logDiagnosticMessage = (
+        category: ts.DiagnosticCategory,
+        message: string,
+        logLevel: LogLevel | null = null
+    ): void => {
+        if (logLevel != null) {
+            this.logger.msg(logLevel, message);
+            return;
+        }
+        switch (category) {
+            case ts.DiagnosticCategory.Error:
+                this.logger.error(message);
+                break;
+            case ts.DiagnosticCategory.Warning:
+                this.logger.warn(message);
+                break;
+            case ts.DiagnosticCategory.Message:
+            case ts.DiagnosticCategory.Suggestion:
+                this.logger.info(message);
+                break;
+        }
+    };
+
+    private logDiagnosticMessageChain = (
+        chain: ts.DiagnosticMessageChain,
+        logLevel: LogLevel | null = null,
+        indent = ''
+    ): void => {
+        this.logDiagnosticMessage(chain.category, chain.messageText, logLevel);
+        if (chain.next) {
+            const nextIndent = '    ' + indent;
+            for (const next of chain.next) {
+                this.logDiagnosticMessageChain(next, logLevel, nextIndent);
+            }
+        }
+    };
+
     resolveTypeInTemplateAtPosition(
         templateFileName: string,
         position: number,
@@ -183,36 +202,40 @@ export class ProjectService {
         }
 
         // Open the component file so the language service knows about it
-        // console.info(`--- ${absoluteComponentPath}`);
         const componentResult = this.tsProjectService.openClientFile(
             absoluteComponentPath,
             undefined, // fileContent - let it read from disk
             ts.ScriptKind.TS
         );
-        if (componentResult.configFileErrors && componentResult.configFileErrors.length > 0) {
-            console.warn(`Config file errors when opening component: ${absoluteComponentPath}`);
-            componentResult.configFileErrors.forEach(logDiagnostic);
-        }
-
-        // TODO: check if debug logging enabled
-        if (typeof (componentResult as unknown) === 'string') {
-            try {
-                const content = fs.readFileSync(absoluteTemplatePath, 'utf8');
-
-                const beforePos = content.slice(0, position);
-                const startOfLineAtPos = beforePos.match(/.*(\r\n|\n|\r)/s)?.[0].length ?? 0;
-
-                const afterPos = content.slice(position);
-                const firstEolAfterPos = afterPos.match(/\r\n|\n|\r/)?.index;
-                const endOfLineAtPos = firstEolAfterPos && position + firstEolAfterPos;
-
-                const lineAtPos = content.slice(startOfLineAtPos, endOfLineAtPos);
-                console.info(`│${lineAtPos}`);
-                console.info('│' + ' '.repeat(position - startOfLineAtPos) + '^');
-            } catch (e) {
-                throw new Error(`Failed to read file: ${absoluteTemplatePath}`, { cause: e });
+        if (componentResult.configFileErrors && componentResult.configFileErrors?.length > 0) {
+            this.logger.startGroup();
+            this.logger.warn(`file diagnostics: ${absoluteComponentPath}`);
+            for (const d of componentResult.configFileErrors) {
+                this.logDiagnostic(d, LogLevel.DEBUG);
             }
+            this.logger.endGroup();
         }
+
+        // if (this.logger.hasLevel(LogLevel.DEBUG)) {
+        //     try {
+        //         const content = fs.readFileSync(absoluteTemplatePath, 'utf8');
+        //
+        //         const beforePos = content.slice(0, position);
+        //         const startOfLineAtPos = beforePos.match(/.*(\r\n|\n|\r)/s)?.[0].length ?? 0;
+        //
+        //         const afterPos = content.slice(position);
+        //         const firstEolAfterPos = afterPos.match(/\r\n|\n|\r/)?.index;
+        //         const endOfLineAtPos = firstEolAfterPos && position + firstEolAfterPos;
+        //
+        //         const lineAtPos = content.slice(startOfLineAtPos, endOfLineAtPos);
+        //         const caretOffset = ' '.repeat(position - startOfLineAtPos);
+        //         this.logger.debug(
+        //             `resolve type of template expression:\n  │ ${lineAtPos}\n  │ ${caretOffset}^`
+        //         );
+        //     } catch (e) {
+        //         throw new Error(`Failed to read file: ${absoluteTemplatePath}`, { cause: e });
+        //     }
+        // }
 
         // Use getTcb to get the Type Check Block and position mappings
         // TODO: cache TCB
@@ -224,8 +247,10 @@ export class ProjectService {
             );
         }
 
-        console.info(`  TCB file: ${tcbResponse.fileName}`);
-        console.info(`  Selections: ${tcbResponse.selections.length}`);
+        this.logger.debug(`TCB file: ${tcbResponse.fileName}`);
+        this.logger.debug(`TCB selections: ${tcbResponse.selections.length}`);
+
+        // this.logger.debug(tcbResponse.content);
 
         const program = this.getProgram();
 
@@ -233,15 +258,6 @@ export class ProjectService {
         const tcbSourceFile = program.getSourceFile(tcbResponse.fileName);
 
         if (!tcbSourceFile) {
-            console.warn(`    TCB source file not found in program: ${tcbResponse.fileName}`);
-            console.warn(
-                `    This is likely because the shim file hasn't been registered with the project`
-            );
-
-            // Try to see what files the program knows about
-            const sourceFiles = program.getSourceFiles() ?? [];
-            const shimFiles = sourceFiles.filter(f => f.fileName.endsWith('.ngtypecheck.ts'));
-            console.warn(`    Program has ${shimFiles.length} shim files`);
             throw new Error(`TCB source file not found in program: ${tcbResponse.fileName}`);
         }
 
@@ -258,28 +274,24 @@ export class ProjectService {
 
         // For each selection (position in TCB that maps to our template position)
         for (const selection of tcbResponse.selections) {
-            // console.info(
-            //     `  Selection at TCB position ${selection.start}-${selection.start + selection.length}:`
-            // );
-
             const nodeAtSelection = findNodeAtPosition(tcbSourceFile, selection.start);
             if (!nodeAtSelection) {
                 throw new Error(
-                    `Unable to find node in TCB source file that contains position selection starting at ${selection.start}`
+                    `unable to find node in TCB corresponding to position ${position} in template: ${templateFileName}`
                 );
             }
 
             const nodeText = nodeAtSelection.getText(tcbSourceFile);
-            console.info(
-                `    Node at selection (${ts.SyntaxKind[nodeAtSelection.kind]}): "${nodeText.substring(0, 100)}${nodeText.length > 100 ? '...' : ''}"`
+            this.logger.debug(
+                `TCB node (${ts.SyntaxKind[nodeAtSelection.kind]}): \`\`\` ${nodeText} \`\`\``
             );
 
             const type = typeChecker.getTypeAtLocation(nodeAtSelection);
-            console.info(`      Type: ${typeChecker.typeToString(type)}`);
+            this.logger.debug(`TCB type: ${typeChecker.typeToString(type)}`);
             return type;
         }
 
-        // console.info('No selections found, falling back to TCB parsing...');
+        this.logger.debug('no TCB selections, falling back to comment parsing...');
 
         // TODO: cache TCB expression source map
         const templateExpressionSourceMap: Record<string, ts.Node> = {};
@@ -313,11 +325,9 @@ export class ProjectService {
         const node = templateExpressionSourceMap[`${position},${positionEnd}`];
         if (node) {
             const type = typeChecker.getTypeAtLocation(node);
-            console.info(`  Node parsed for template position: ${node.getFullText()}`);
-            console.info(`    Type: ${typeChecker.typeToString(type)}`);
+            this.logger.debug(`TCB node: ${node.getFullText()}`);
+            this.logger.debug(`TCB type: ${typeChecker.typeToString(type)}`);
             return type;
-        } else {
-            console.info(`  NO NODE FOUND AT ${position},${positionEnd}`);
         }
 
         throw new Error(

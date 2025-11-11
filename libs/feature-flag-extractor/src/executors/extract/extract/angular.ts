@@ -1,4 +1,4 @@
-import { ExecutorContext } from '@nx/devkit';
+import { Context } from '../context';
 import { FlagRead } from '.';
 import * as path from 'node:path';
 import * as ng from '@angular/compiler';
@@ -6,13 +6,15 @@ import { ProjectService } from './project-service';
 import { typeContainsSymbol } from '../ts-util';
 
 interface TemplateKeyedRead {
+    exprStart: number;
+    exprEnd: number;
     receiverStart: number;
     receiverEnd: number;
     flagId: string;
 }
 
 export function extractFeatureFlagsFromTemplate(
-    ctx: ExecutorContext,
+    ctx: Context,
     rootPath: string,
     projectService: ProjectService,
     templateUrl: string,
@@ -34,26 +36,34 @@ export function extractFeatureFlagsFromTemplate(
     const keyedReads: FlagRead[] = [];
 
     for (const keyedRead of visitor.getKeyedReads()) {
-        console.log(
-            `KEYED READ: ${template.slice(keyedRead.receiverStart, keyedRead.receiverEnd)}`
-        );
+        // ctx.logger.debug(
+        //     `TEST [src=TMPL] keyed read: \`\`\` ${template.substring(keyedRead.exprStart, keyedRead.exprEnd)} \`\`\``
+        // );
+
+        const start = templateOffset + keyedRead.receiverStart;
+        const end = templateOffset + keyedRead.receiverEnd;
+
         const receiverType = projectService.resolveTypeInTemplateAtPosition(
             filePathRelative,
-            templateOffset + keyedRead.receiverStart,
-            templateOffset + keyedRead.receiverEnd
+            start,
+            end
         );
         const receiverTypeContainsLDFlagSet = typeContainsSymbol(
             typeChecker,
             receiverType,
             'LDFlagSet'
         );
+
         if (receiverTypeContainsLDFlagSet) {
+            const text = template.substring(keyedRead.exprStart, keyedRead.exprEnd);
+            ctx.logger.debug(`>>> EXTRACT [src=TMPL] flag read: \`\`\` ${text} \`\`\``);
+
             // TODO: convert offset into correct row & col
             keyedReads.push({
                 kind: 'template',
                 filePathRelative,
                 row: 0,
-                col: templateOffset + keyedRead.receiverStart,
+                col: start,
                 flagId: keyedRead.flagId,
             });
         }
@@ -212,11 +222,13 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         this.keyedReads = keyedReads;
     }
 
-    private addKeyedRead(receiver: ng.AST, key: string) {
+    private addKeyedRead(expr: ng.AST, receiver: ng.AST, key: string) {
         const strippedFlagId = key.replace(/["']/g, '');
         // TODO: fix span location to be the actual row/col in the source instead of byte offset
         // start/end.
         this.keyedReads.push({
+            exprStart: expr.sourceSpan.start,
+            exprEnd: expr.sourceSpan.end,
             receiverStart: receiver.sourceSpan.start,
             receiverEnd: receiver.sourceSpan.end,
             flagId: strippedFlagId,
@@ -235,7 +247,7 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         ctx: FeatureFlagAstVisitorContext
     ): FeatureFlagAstVisitorResult {
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            this.addKeyedRead(ast.receiver, ast.key.value);
+            this.addKeyedRead(ast, ast.receiver, ast.key.value);
         } else {
             super.visitKeyedRead(ast, ctx);
         }
@@ -253,7 +265,7 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         ctx: FeatureFlagAstVisitorContext
     ): FeatureFlagAstVisitorResult {
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            this.addKeyedRead(ast.receiver, ast.key.value);
+            this.addKeyedRead(ast, ast.receiver, ast.key.value);
         } else {
             super.visitSafeKeyedRead(ast, ctx);
         }

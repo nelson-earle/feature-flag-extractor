@@ -14,9 +14,10 @@
             "type": "string",
             "description": "The path of the tsConfig to use for parsing TypeScript files"
         },
-        "verbose": {
-            "type": "boolean",
-            "description": "Enable verbose logging"
+        "logLevel": {
+            "type": "string",
+            "description": "The maximum log level",
+            "enum": ["error", "warn", "info", "debug"]
         }
     }
 }

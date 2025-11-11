@@ -2,20 +2,20 @@ import * as ts from 'typescript';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { FlagRead } from '.';
-import { ExecutorContext } from '@nx/devkit';
+import { Context } from '../context';
 import { extractFeatureFlagsFromTemplate } from './angular';
 import { ProjectService } from './project-service';
 import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from '../ts-util';
 
 export function extractFeatureFlagsFromTs(
-    ctx: ExecutorContext,
+    ctx: Context,
     projectPath: string,
     projectService: ProjectService,
     sourceFile: ts.SourceFile,
     filePath: string
 ): FlagRead[] {
-    console.info('--------------------------------------------------');
-    console.info(`----- ${filePath}`);
+    ctx.logger.info('-----------------------------------------------------------------------');
+    ctx.logger.info(`parsing TS file: ${filePath}`);
     const flagReads: FlagRead[] = [];
 
     const typeChecker = projectService.getTypeChecker();
@@ -43,7 +43,9 @@ export function extractFeatureFlagsFromTs(
                 const template = getTemplateFromComponentMetadata(ctx, filePath, decoratorArg);
                 if (template) {
                     const templateUrl = `file://${template.path}`;
-                    console.log(`----- TEMPLATE: ${template.path} (offset=${template.offset})`);
+                    ctx.logger.info(
+                        ` found template: ${template.path} (offset=${template.offset})`
+                    );
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
                         ctx.root,
@@ -90,10 +92,12 @@ function getAngularComponentMetadataFromDecorators(
  * @returns The flag ID or null if the node doesn't match our criteria.
  */
 function extractFlagFromElementAccess(
-    ctx: ExecutorContext,
+    ctx: Context,
     typeChecker: ts.TypeChecker,
     node: ts.ElementAccessExpression
 ): string | null {
+    // ctx.logger.debug(`TEST [src=COMP] element access: \`\`\` ${node.getText()} \`\`\``);
+
     const receiverType = typeChecker.getTypeAtLocation(node.expression);
 
     const receiverTypeContainsLDFlagSet = typeContainsSymbol(
@@ -104,6 +108,8 @@ function extractFlagFromElementAccess(
     if (!receiverTypeContainsLDFlagSet) {
         return null;
     }
+
+    ctx.logger.debug(`>>> EXTRACT [src=COMP] flag read: \`\`\` ${node.getText()} \`\`\``);
 
     // TODO: replace the below key evaluation with a visitor that does partial evaluation for
     // strings (e.g. "StringPartialVisitor").
@@ -128,16 +134,18 @@ function extractFlagFromElementAccess(
         ) {
             // Try to find the literal value from symbol declaration
             flag = extractDynamicFlag(typeChecker, node.argumentExpression);
-        } else if (keyTypeString !== 'string') {
-            // Neither a string literal or an identifier/property read
-            console.warn(
-                `Found read of 'LDFlagSet' with key of unsupported type: ${keyTypeString}`
+        } else {
+            // Neither a string literal nor an identifier/property read
+            ctx.logger.warn(
+                `element access of 'LDFlagSet' with key of unsupported type: \`\`\` ${keyTypeString} \`\`\``
             );
         }
     }
 
     if (!flag) {
-        console.warn(`Unable to get flag ID for 'LDFlagSet' read: ${node.getText()}`);
+        ctx.logger.warn(
+            `unable to get flag ID from 'LDFlagSet' read: \`\`\` ${node.getText()} \`\`\``
+        );
     }
 
     return flag;
@@ -179,7 +187,7 @@ function extractDynamicFlag(
 }
 
 function getTemplateFromComponentMetadata(
-    ctx: ExecutorContext,
+    ctx: Context,
     filePath: string,
     metadata: ts.ObjectLiteralExpression
 ): { path: string; content: string; offset: number } | null {
@@ -193,15 +201,17 @@ function getTemplateFromComponentMetadata(
                     const offset = prop.initializer.getFullStart() + beforeTemplate.length;
                     return { path: filePath, content: prop.initializer.text, offset };
                 } else {
-                    console.warn(
-                        `Inline template is not a string literal in component: ${filePath}`
+                    ctx.logger.warn(
+                        `inline template is not a string literal in component: ${filePath}`
                     );
                     return null;
                 }
                 // TODO: handle initializer that is an identifier of a constant.
             } else if (isObjectKeyAndEquals(prop.name, 'templateUrl')) {
                 if (!isStaticString(prop.initializer)) {
-                    console.warn(`Template URL is not a string literal for component: ${filePath}`);
+                    ctx.logger.warn(
+                        `template URL is not a string literal in component: ${filePath}`
+                    );
                     return null;
                 }
                 // TODO: handle initializer that is an identifier of a constant.
@@ -218,7 +228,7 @@ function getTemplateFromComponentMetadata(
                         const content = fs.readFileSync(templatePath, 'utf-8');
                         return { path: templatePath, content, offset: 0 };
                     } else {
-                        console.warn(`Template file not found for component: ${filePath}`);
+                        ctx.logger.warn(`template URL file not found for component: ${filePath}`);
                         return null;
                     }
                 } catch (error) {
