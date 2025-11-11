@@ -39,7 +39,7 @@ const logDiagnostic = (d: ts.Diagnostic) => {
     }
 };
 
-export class AngularTemplateTypeResolver {
+export class ProjectService {
     private rootPath: string;
 
     private tsServerHost: ts.server.ServerHost;
@@ -152,7 +152,25 @@ export class AngularTemplateTypeResolver {
         }
     }
 
-    resolveType(templateFileName: string, position: number, positionEnd: number): ts.Type {
+    getProgram(): ts.Program {
+        const program = this.ngLanguageService.getProgram();
+        if (!program) {
+            throw new Error(`Failed to get the program of the NgLanguageService`);
+        }
+        return program;
+    }
+
+    getTypeChecker(): ts.TypeChecker {
+        const program = this.getProgram();
+        const typeChecker = program.getTypeChecker();
+        return typeChecker;
+    }
+
+    resolveTypeInTemplateAtPosition(
+        templateFileName: string,
+        position: number,
+        positionEnd: number
+    ): ts.Type {
         // Convert relative path to absolute if needed
         const absoluteTemplatePath = path.isAbsolute(templateFileName)
             ? templateFileName
@@ -209,10 +227,7 @@ export class AngularTemplateTypeResolver {
         console.info(`  TCB file: ${tcbResponse.fileName}`);
         console.info(`  Selections: ${tcbResponse.selections.length}`);
 
-        const program = this.ngLanguageService.getProgram();
-        if (!program) {
-            throw new Error(`Failed to get the program of the NgLanguageService`);
-        }
+        const program = this.getProgram();
 
         // Check if the language service knows about the TCB file
         const tcbSourceFile = program.getSourceFile(tcbResponse.fileName);

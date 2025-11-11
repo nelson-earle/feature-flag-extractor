@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { extractFeatureFlagsFromTs } from './ts';
 import { ExecutorContext } from '@nx/devkit';
-import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
+import { ProjectService } from './project-service';
 
 export interface FlagRead {
     kind: 'ts' | 'template';
@@ -16,7 +16,7 @@ export interface FlagRead {
 export function extractFeatureFlags(
     ctx: ExecutorContext,
     targetProjectPath: string,
-    tsconfigPath: string
+    tsConfigPath: string
 ): FlagRead[] {
     // Check if required arguments are provided
     if (targetProjectPath) {
@@ -30,33 +30,22 @@ export function extractFeatureFlags(
         throw new Error(`Project path does not exist: ${targetProjectPath}`);
     }
 
-    if (tsconfigPath) {
+    if (tsConfigPath) {
         // Resolve tsconfig path if provided
-        tsconfigPath = path.resolve(tsconfigPath);
+        tsConfigPath = path.resolve(tsConfigPath);
 
         // Check if tsconfig path exists
-        if (!fs.existsSync(tsconfigPath)) {
-            throw new Error(`TSConfig path does not exist: ${tsconfigPath}`);
+        if (!fs.existsSync(tsConfigPath)) {
+            throw new Error(`TSConfig path does not exist: ${tsConfigPath}`);
         }
     }
 
     // Load the config
-    const tsConfig = loadTsConfig(tsconfigPath);
+    const tsConfig = loadTsConfig(tsConfigPath);
 
-    // Create the TypeScript program using the tsconfig
-    const program = ts.createProgram({ rootNames: tsConfig.fileNames, options: tsConfig.options });
+    const projectService = new ProjectService(ctx.root, tsConfigPath, tsConfig);
 
-    const typeChecker = program.getTypeChecker();
-
-    const ngTypeResolver = new AngularTemplateTypeResolver(ctx.root, tsconfigPath, tsConfig);
-
-    // const templateFileName = 'apps/test-app/src/app/components/page/page.component.html';
-    // // const position = /* beginning of `featureFlags | async` */ 355;
-    // // const position = /* beginning of `flagsForTable` */ 355 - 16;
-    // // const position = /* beginning of `@let` */ 355 - 16 - 5;
-    // const position = 515;
-    // ngTypeResolver.resolveType(templateFileName, position, position + 7);
-    // return [];
+    const program = projectService.getProgram();
 
     const flagReads: FlagRead[] = [];
 
@@ -75,8 +64,7 @@ export function extractFeatureFlags(
             ...extractFeatureFlagsFromTs(
                 ctx,
                 targetProjectPath,
-                typeChecker,
-                ngTypeResolver,
+                projectService,
                 sourceFile,
                 sourceFile.fileName
             )

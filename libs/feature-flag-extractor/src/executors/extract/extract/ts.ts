@@ -4,20 +4,21 @@ import * as path from 'node:path';
 import { FlagRead } from '.';
 import { ExecutorContext } from '@nx/devkit';
 import { extractFeatureFlagsFromTemplate } from './angular';
-import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
+import { ProjectService } from './project-service';
 import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from '../ts-util';
 
 export function extractFeatureFlagsFromTs(
     ctx: ExecutorContext,
     projectPath: string,
-    typeChecker: ts.TypeChecker,
-    ngTemplateTypeResolver: AngularTemplateTypeResolver,
+    projectService: ProjectService,
     sourceFile: ts.SourceFile,
     filePath: string
 ): FlagRead[] {
     console.info('--------------------------------------------------');
     console.info(`----- ${filePath}`);
     const flagReads: FlagRead[] = [];
+
+    const typeChecker = projectService.getTypeChecker();
 
     const visit = (node: ts.Node): void => {
         if (ts.isElementAccessExpression(node)) {
@@ -46,8 +47,7 @@ export function extractFeatureFlagsFromTs(
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
                         ctx.root,
-                        typeChecker,
-                        ngTemplateTypeResolver,
+                        projectService,
                         templateUrl,
                         template.content,
                         template.offset

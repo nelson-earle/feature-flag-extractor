@@ -2,8 +2,7 @@ import { ExecutorContext } from '@nx/devkit';
 import { FlagRead } from '.';
 import * as path from 'node:path';
 import * as ng from '@angular/compiler';
-import { AngularTemplateTypeResolver } from './angular-template-type-resolver';
-import * as ts from 'typescript';
+import { ProjectService } from './project-service';
 import { typeContainsSymbol } from '../ts-util';
 
 interface TemplateKeyedRead {
@@ -15,12 +14,13 @@ interface TemplateKeyedRead {
 export function extractFeatureFlagsFromTemplate(
     ctx: ExecutorContext,
     rootPath: string,
-    typeChecker: ts.TypeChecker,
-    templateTypeResolver: AngularTemplateTypeResolver,
+    projectService: ProjectService,
     templateUrl: string,
     template: string,
     templateOffset: number
 ): FlagRead[] {
+    const typeChecker = projectService.getTypeChecker();
+
     const parsedTemplate = parseTemplate(template, templateUrl);
 
     const filePath = templateUrl.replace(/^file:\/\//, '');
@@ -37,7 +37,7 @@ export function extractFeatureFlagsFromTemplate(
         console.log(
             `KEYED READ: ${template.slice(keyedRead.receiverStart, keyedRead.receiverEnd)}`
         );
-        const receiverType = templateTypeResolver.resolveType(
+        const receiverType = projectService.resolveTypeInTemplateAtPosition(
             filePathRelative,
             templateOffset + keyedRead.receiverStart,
             templateOffset + keyedRead.receiverEnd
