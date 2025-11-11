@@ -35,6 +35,7 @@ export class TsLogger implements ts.server.Logger {
 
     endGroup(): void {
         this.inGroup = false;
+        this.seq++;
     }
 
     close(): void {
@@ -51,6 +52,7 @@ export class TsLogger implements ts.server.Logger {
 
     msg(s: string, type: ts.server.Msg = ts.server.Msg.Err): void {
         if (!this.loggingEnabled()) return;
+        // TODO: does this still log when the msg is outside the set log level?
 
         let consoleMethod: ConsoleMethod = 'error';
         switch (type) {
