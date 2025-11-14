@@ -11,9 +11,6 @@
         "build": {
             "dependsOn": ["^build"]
         },
-        "extract-feature-flags": {
-            "dependsOn": ["^build"]
-        },
         "@angular/build:application": {
             "cache": true,
             "dependsOn": ["^build"],
@@ -32,6 +29,14 @@
             "cache": true,
             "dependsOn": ["^build"],
             "inputs": ["default", "^default"]
+        },
+        "@nx/js:tsc": {
+            "cache": true,
+            "dependsOn": ["^build"],
+            "inputs": ["production", "^production"]
+        },
+        "extract-feature-flags": {
+            "dependsOn": ["feature-flag-extractor:build"]
         }
     },
     "generators": {
