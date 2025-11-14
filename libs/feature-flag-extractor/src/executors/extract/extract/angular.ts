@@ -6,10 +6,8 @@ import { ProjectService } from './project-service';
 import { typeContainsSymbol } from '../ts-util';
 
 interface TemplateKeyedRead {
-    exprStart: number;
-    exprEnd: number;
-    receiverStart: number;
-    receiverEnd: number;
+    exprSpan: ng.AbsoluteSourceSpan;
+    receiverSpan: ng.AbsoluteSourceSpan;
     flagId: string;
 }
 
@@ -37,11 +35,11 @@ export function extractFeatureFlagsFromTemplate(
 
     for (const keyedRead of visitor.getKeyedReads()) {
         // ctx.logger.debug(
-        //     `TEST [src=TMPL] keyed read: \`\`\` ${template.substring(keyedRead.exprStart, keyedRead.exprEnd)} \`\`\``
+        //     `TEST [src=TMPL] keyed read: \`\`\` ${template.substring(keyedRead.exprSpan.start, keyedRead.exprSpan.end)} \`\`\``
         // );
 
-        const start = templateOffset + keyedRead.receiverStart;
-        const end = templateOffset + keyedRead.receiverEnd;
+        const start = templateOffset + keyedRead.receiverSpan.start;
+        const end = templateOffset + keyedRead.receiverSpan.end;
 
         const receiverType = projectService.resolveTypeInTemplateAtPosition(
             filePathRelative,
@@ -55,7 +53,7 @@ export function extractFeatureFlagsFromTemplate(
         );
 
         if (receiverTypeContainsLDFlagSet) {
-            const text = template.substring(keyedRead.exprStart, keyedRead.exprEnd);
+            const text = template.substring(keyedRead.exprSpan.start, keyedRead.exprSpan.end);
             ctx.logger.debug(`>>> EXTRACT [src=TMPL] flag read: \`\`\` ${text} \`\`\``);
 
             // TODO: convert offset into correct row & col
@@ -110,6 +108,26 @@ class FeatureFlagVisitor extends ng.TmplAstRecursiveVisitor {
 
     ctx(): FeatureFlagAstVisitorContext {
         return;
+    }
+
+    /**
+     * Override to fix bug where `TmplAstRecursiveVisitor.visitTemplate`
+     * doesn't visit the `templateAttrs` of the `TmplAstTemplate`.
+     *
+     * TODO: this override is not needed once we can upgrade this class to be
+     * `extends ng.CombinedRecursiveAstVisitor` (exported name TBD), introduced
+     * in Angular 20.1.x. See [1] for implementation.
+     *
+     * [1]: https://github.com/angular/angular/pull/61158
+     */
+    override visitTemplate(template: ng.TmplAstTemplate): void {
+        ng.tmplAstVisitAll(this, template.attributes);
+        ng.tmplAstVisitAll(this, template.inputs);
+        ng.tmplAstVisitAll(this, template.outputs);
+        ng.tmplAstVisitAll(this, template.templateAttrs); // missing in original impl
+        ng.tmplAstVisitAll(this, template.children);
+        ng.tmplAstVisitAll(this, template.references);
+        ng.tmplAstVisitAll(this, template.variables);
     }
 
     /**
@@ -227,10 +245,8 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         // TODO: fix span location to be the actual row/col in the source instead of byte offset
         // start/end.
         this.keyedReads.push({
-            exprStart: expr.sourceSpan.start,
-            exprEnd: expr.sourceSpan.end,
-            receiverStart: receiver.sourceSpan.start,
-            receiverEnd: receiver.sourceSpan.end,
+            exprSpan: expr.sourceSpan,
+            receiverSpan: receiver.sourceSpan,
             flagId: strippedFlagId,
         });
     }
