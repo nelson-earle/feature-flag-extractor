@@ -1,5 +1,4 @@
 export interface Options {
-    projectRoot: string;
     tsConfig: string;
     logLevel?: OptionsLogLevel;
 }

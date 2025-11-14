@@ -4,12 +4,8 @@
     "cli": "nx",
     "title": "Extract Launch Darkly feature flag IDs from an Angular application",
     "description": "Custom executor for my specific task",
-    "required": ["projectRoot", "tsConfig"],
+    "required": ["tsConfig"],
     "properties": {
-        "projectRoot": {
-            "type": "string",
-            "description": "The path of the root directory of the project"
-        },
         "tsConfig": {
             "type": "string",
             "description": "The path of the tsConfig to use for parsing TypeScript files"

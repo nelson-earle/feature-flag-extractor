@@ -9,6 +9,21 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     options: Options,
     executorCtx: ExecutorContext
 ) => {
+    const projectName = executorCtx.projectName;
+    if (!projectName) {
+        return error('Unable to get target project name');
+    }
+
+    const project = executorCtx.projectsConfigurations?.projects[projectName];
+    if (!project) {
+        return error(`Unable to get project: ${projectName}`);
+    }
+
+    const projectRoot = project?.root;
+    if (!projectRoot) {
+        return error(`Unable to get root of project: ${projectName}`);
+    }
+
     const logLevel = optionLogLevelToLogLevel(options.logLevel);
     const logger = new Logger(logLevel);
     const ctx: Context = { ...executorCtx, logger };
@@ -16,7 +31,7 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     const flagReads: FlagRead[] = [];
 
     try {
-        const tsFlagReads = extractFeatureFlags(ctx, options.projectRoot, options.tsConfig);
+        const tsFlagReads = extractFeatureFlags(ctx, projectRoot, options.tsConfig);
         flagReads.push(...tsFlagReads);
     } catch (ex) {
         const message = ex instanceof Error ? ex.message : 'An unknown error occurred';

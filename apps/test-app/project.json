@@ -9,7 +9,6 @@
         "extract-feature-flags": {
             "executor": "feature-flag-extractor:extract",
             "options": {
-                "projectRoot": "apps/test-app",
                 "tsConfig": "apps/test-app/tsconfig.app.json"
             }
         },
