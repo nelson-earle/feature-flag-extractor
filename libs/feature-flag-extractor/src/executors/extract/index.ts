@@ -3,6 +3,7 @@ import type { Options } from './schema';
 import { extractFeatureFlags, FlagRead } from './extract';
 import { Logger, optionLogLevelToLogLevel } from './logger';
 import { Context } from './context';
+import { error, EXECUTOR_RESULT_SUCCESS } from './executor-util';
 
 const extractFeatureFlagsExecutor: PromiseExecutor = async (
     options: Options,
@@ -18,9 +19,8 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
         const tsFlagReads = extractFeatureFlags(ctx, options.projectRoot, options.tsConfig);
         flagReads.push(...tsFlagReads);
     } catch (ex) {
-        const error = ex instanceof Error ? ex.message : 'An unknown error occurred';
-        console.error(error);
-        return { success: false };
+        const message = ex instanceof Error ? ex.message : 'An unknown error occurred';
+        return error(message);
     }
 
     for (const read of flagReads) {
@@ -30,9 +30,13 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     }
 
     console.log(flagReads.length);
-    console.assert(flagReads.length === 18, `unexpected number of flags ${flagReads.length}`);
 
-    return { success: true };
+    const expectedFlags = 18;
+    if (flagReads.length !== expectedFlags) {
+        return error(`expected ${expectedFlags} flags, found ${flagReads.length}`);
+    }
+
+    return EXECUTOR_RESULT_SUCCESS;
 };
 
 export default extractFeatureFlagsExecutor;
