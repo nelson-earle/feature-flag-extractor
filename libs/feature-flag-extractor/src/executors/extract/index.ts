@@ -4,6 +4,7 @@ import { extractFeatureFlags, FlagRead } from './extract';
 import { Logger, optionLogLevelToLogLevel } from './logger';
 import { Context } from './context';
 import { error, EXECUTOR_RESULT_SUCCESS } from './executor-util';
+import * as path from 'node:path';
 
 const extractFeatureFlagsExecutor: PromiseExecutor = async (
     options: Options,
@@ -19,19 +20,19 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
         return error(`Unable to get project: ${projectName}`);
     }
 
-    const projectRoot = project?.root;
-    if (!projectRoot) {
+    if (!project?.root) {
         return error(`Unable to get root of project: ${projectName}`);
     }
+    const projectRoot = path.resolve(project.root);
 
     const logLevel = optionLogLevelToLogLevel(options.logLevel);
     const logger = new Logger(logLevel);
-    const ctx: Context = { ...executorCtx, logger };
+    const ctx: Context = { ...executorCtx, projectRoot, logger };
 
     const flagReads: FlagRead[] = [];
 
     try {
-        const tsFlagReads = extractFeatureFlags(ctx, projectRoot, options.tsConfig);
+        const tsFlagReads = extractFeatureFlags(ctx, options.tsConfig);
         flagReads.push(...tsFlagReads);
     } catch (ex) {
         const message = ex instanceof Error ? ex.message : 'An unknown error occurred';

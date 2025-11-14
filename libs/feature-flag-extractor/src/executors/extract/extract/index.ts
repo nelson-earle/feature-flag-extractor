@@ -13,23 +13,7 @@ export interface FlagRead {
     flagId: string;
 }
 
-export function extractFeatureFlags(
-    ctx: Context,
-    targetProjectPath: string,
-    tsConfigPath: string
-): FlagRead[] {
-    // Check if required arguments are provided
-    if (targetProjectPath) {
-        targetProjectPath = path.resolve(targetProjectPath);
-    } else {
-        throw new Error('Please provide a path to the target project as the first argument');
-    }
-
-    // Check if project path exists
-    if (!fs.existsSync(targetProjectPath)) {
-        throw new Error(`Project path does not exist: ${targetProjectPath}`);
-    }
-
+export function extractFeatureFlags(ctx: Context, tsConfigPath: string): FlagRead[] {
     if (tsConfigPath) {
         // Resolve tsconfig path if provided
         tsConfigPath = path.resolve(tsConfigPath);
@@ -51,7 +35,7 @@ export function extractFeatureFlags(
 
     for (const sourceFile of program.getSourceFiles()) {
         if (
-            !sourceFile.fileName.startsWith(targetProjectPath) ||
+            !sourceFile.fileName.startsWith(ctx.projectRoot) ||
             sourceFile.fileName.includes('node_modules') ||
             sourceFile.fileName.endsWith('.d.ts') ||
             sourceFile.fileName.endsWith('.spec.ts') ||
@@ -60,15 +44,7 @@ export function extractFeatureFlags(
             continue;
         }
 
-        flagReads.push(
-            ...extractFeatureFlagsFromTs(
-                ctx,
-                targetProjectPath,
-                projectService,
-                sourceFile,
-                sourceFile.fileName
-            )
-        );
+        flagReads.push(...extractFeatureFlagsFromTs(ctx, projectService, sourceFile));
     }
 
     return flagReads;

@@ -9,11 +9,11 @@ import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from '../ts-
 
 export function extractFeatureFlagsFromTs(
     ctx: Context,
-    projectPath: string,
     projectService: ProjectService,
-    sourceFile: ts.SourceFile,
-    filePath: string
+    sourceFile: ts.SourceFile
 ): FlagRead[] {
+    const filePath = sourceFile.fileName;
+
     ctx.logger.info('-----------------------------------------------------------------------');
     ctx.logger.info(`parsing TS file: ${filePath}`);
     const flagReads: FlagRead[] = [];
@@ -28,7 +28,7 @@ export function extractFeatureFlagsFromTs(
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(
                     node.getStart()
                 );
-                const relativePath = path.relative(projectPath, sourceFile.fileName);
+                const relativePath = path.relative(ctx.projectRoot, filePath);
                 flagReads.push({
                     kind: 'ts',
                     filePathRelative: relativePath,
