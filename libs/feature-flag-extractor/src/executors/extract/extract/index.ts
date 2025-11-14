@@ -13,18 +13,12 @@ export interface FlagRead {
     flagId: string;
 }
 
-export function extractFeatureFlags(ctx: Context, tsConfigPath: string): FlagRead[] {
-    if (tsConfigPath) {
-        // Resolve tsconfig path if provided
-        tsConfigPath = path.resolve(tsConfigPath);
-
-        // Check if tsconfig path exists
-        if (!fs.existsSync(tsConfigPath)) {
-            throw new Error(`TSConfig path does not exist: ${tsConfigPath}`);
-        }
+export function extractFeatureFlags(ctx: Context): FlagRead[] {
+    const tsConfigPath = path.resolve(ctx.root, ctx.options.tsConfig);
+    if (!fs.existsSync(tsConfigPath)) {
+        throw new Error(`TSConfig path does not exist: ${tsConfigPath}`);
     }
 
-    // Load the config
     const tsConfig = loadTsConfig(tsConfigPath);
 
     const projectService = new ProjectService(ctx, tsConfigPath, tsConfig);

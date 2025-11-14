@@ -27,12 +27,12 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
 
     const logLevel = optionLogLevelToLogLevel(options.logLevel);
     const logger = new Logger(logLevel);
-    const ctx: Context = { ...executorCtx, projectRoot, logger };
+    const ctx: Context = { ...executorCtx, projectRoot, logger, options };
 
     const flagReads: FlagRead[] = [];
 
     try {
-        const tsFlagReads = extractFeatureFlags(ctx, options.tsConfig);
+        const tsFlagReads = extractFeatureFlags(ctx);
         flagReads.push(...tsFlagReads);
     } catch (ex) {
         const message = ex instanceof Error ? ex.message : 'An unknown error occurred';
