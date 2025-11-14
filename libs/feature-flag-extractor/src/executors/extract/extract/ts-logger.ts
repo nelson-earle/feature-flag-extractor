@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { DateTime } from 'luxon';
 
 type ConsoleMethod = 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
@@ -70,9 +71,7 @@ export class TsLogger implements ts.server.Logger {
         let message: string;
         if (!this.inGroup || this.firstInGroup) {
             this.firstInGroup = false;
-            // TODO: re-impl this with luxon
-            const now = new Date();
-            const nowString = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}.${now.getMilliseconds()}`;
+            const nowString = DateTime.now().toFormat('TT.SSS');
             message = `${type} ${this.seq}`.padEnd(10) + `[${nowString}] ${s}\n`;
         } else {
             message = `${s}\n`;

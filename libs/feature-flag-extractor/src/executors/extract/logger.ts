@@ -1,4 +1,5 @@
 import { OptionsLogLevel } from './schema';
+import { DateTime } from 'luxon';
 
 export const LogLevel = Object.freeze({
     ERROR: 0,
@@ -64,13 +65,7 @@ export class Logger {
         let prefix = '';
         if (!this.inGroup || this.firstInGroup) {
             this.firstInGroup = false;
-            // TODO: re-impl this with luxon
-            const now = new Date();
-            const hrs = now.getHours().toString().padStart(2, '0');
-            const mins = now.getMinutes().toString().padStart(2, '0');
-            const secs = now.getSeconds().toString().padStart(2, '0');
-            const millis = now.getMilliseconds().toString().padStart(3, '0');
-            const nowString = `${hrs}:${mins}:${secs}.${millis}`;
+            const nowString = DateTime.now().toFormat('TT.SSS');
             prefix = `[${LOG_LEVEL_LABEL[level]}] ${this.seq.toString().padStart(5)} ${nowString}: `;
         }
 
