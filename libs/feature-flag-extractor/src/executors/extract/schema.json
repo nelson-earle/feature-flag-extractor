@@ -13,7 +13,7 @@
         "logLevel": {
             "type": "string",
             "description": "The maximum log level",
-            "enum": ["error", "warn", "info", "debug"]
+            "enum": ["error", "warn", "info", "debug", "debug2"]
         }
     }
 }

@@ -6,9 +6,10 @@ export const LogLevel = Object.freeze({
     WARN: 1,
     INFO: 2,
     DEBUG: 3,
+    DEBUG2: 4,
 });
 
-const LOG_LEVEL_LABEL = Object.freeze(['ERR ', 'WARN', 'INFO', 'DBG '] as const);
+const LOG_LEVEL_LABEL = Object.freeze(['ERR ', 'WARN', 'INFO', 'DBG ', 'DBG2'] as const);
 
 export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
@@ -22,6 +23,8 @@ export function optionLogLevelToLogLevel(logLevel?: OptionsLogLevel): LogLevel {
             return LogLevel.INFO;
         case 'debug':
             return LogLevel.DEBUG;
+        case 'debug2':
+            return LogLevel.DEBUG2;
         default:
             return LogLevel.WARN;
     }
@@ -32,6 +35,7 @@ const CONSOLE_METHOD = Object.freeze({
     [LogLevel.WARN]: 'warn',
     [LogLevel.INFO]: 'info',
     [LogLevel.DEBUG]: 'debug',
+    [LogLevel.DEBUG2]: 'debug',
 });
 
 export class Logger {
@@ -41,7 +45,7 @@ export class Logger {
     private inGroup = false;
     private firstInGroup = true;
 
-    constructor(level: LogLevel = LogLevel.DEBUG) {
+    constructor(level: LogLevel = LogLevel.WARN) {
         this.level = level;
     }
 
@@ -92,6 +96,10 @@ export class Logger {
 
     debug(msg: string): void {
         this.msg(LogLevel.DEBUG, msg);
+    }
+
+    debug2(msg: string): void {
+        this.msg(LogLevel.DEBUG2, msg);
     }
 }
 

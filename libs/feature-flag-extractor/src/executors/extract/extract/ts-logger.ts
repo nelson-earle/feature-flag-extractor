@@ -1,24 +1,23 @@
 import * as ts from 'typescript';
-import { DateTime } from 'luxon';
-
-type ConsoleMethod = 'error' | 'warn' | 'info' | 'debug' | 'trace';
+import { LogLevel, Logger } from '../logger';
 
 /**
  * Copied from: https://github.com/angular/vscode-ng-language-service/blob/19.2.x/server/src/logger.ts
  */
 export class TsLogger implements ts.server.Logger {
-    private readonly level;
+    private readonly logger: Logger;
+    private readonly level: ts.server.LogLevel;
 
-    private seq = 0;
     private inGroup = false;
     private firstInGroup = true;
 
-    constructor(level = ts.server.LogLevel.normal) {
+    constructor(logger: Logger, level = ts.server.LogLevel.terse) {
+        this.logger = logger;
         this.level = level;
     }
 
     loggingEnabled(): boolean {
-        return true;
+        return this.logger.hasLevel(LogLevel.DEBUG2);
     }
 
     getLogFileName(): string | undefined {
@@ -32,11 +31,12 @@ export class TsLogger implements ts.server.Logger {
     startGroup(): void {
         this.inGroup = true;
         this.firstInGroup = true;
+        this.logger.startGroup();
     }
 
     endGroup(): void {
         this.inGroup = false;
-        this.seq++;
+        this.logger.endGroup();
     }
 
     close(): void {
@@ -51,34 +51,17 @@ export class TsLogger implements ts.server.Logger {
         this.msg(s, ts.server.Msg.Info);
     }
 
-    msg(s: string, type: ts.server.Msg = ts.server.Msg.Err): void {
+    msg(msg: string, type: ts.server.Msg = ts.server.Msg.Err): void {
         if (!this.loggingEnabled()) return;
-        // TODO: does this still log when the msg is outside the set log level?
-
-        let consoleMethod: ConsoleMethod = 'error';
-        switch (type) {
-            case ts.server.Msg.Err:
-                consoleMethod = 'error';
-                break;
-            case ts.server.Msg.Info:
-                consoleMethod = 'info';
-                break;
-            case ts.server.Msg.Perf:
-                consoleMethod = 'debug';
-                break;
-        }
 
         let message: string;
         if (!this.inGroup || this.firstInGroup) {
             this.firstInGroup = false;
-            const nowString = DateTime.now().toFormat('TT.SSS');
-            message = `${type} ${this.seq}`.padEnd(10) + `[${nowString}] ${s}\n`;
+            message = `(TS) ${type.padEnd(4)} ${msg}`;
         } else {
-            message = `${s}\n`;
+            message = msg;
         }
 
-        // console[consoleMethod](message);
-
-        if (!this.inGroup) this.seq++;
+        this.logger.debug2(message);
     }
 }

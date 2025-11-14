@@ -49,7 +49,7 @@ export class ProjectService {
             clearImmediate,
         };
 
-        this.tsLogger = new TsLogger(ts.server.LogLevel.terse);
+        this.tsLogger = new TsLogger(ctx.logger);
 
         this.tsProjectService = new ts.server.ProjectService({
             host: this.tsServerHost,

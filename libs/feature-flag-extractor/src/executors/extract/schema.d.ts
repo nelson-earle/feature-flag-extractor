@@ -3,4 +3,4 @@ export interface Options {
     logLevel?: OptionsLogLevel;
 }
 
-export type OptionsLogLevel = 'error' | 'warn' | 'info' | 'debug';
+export type OptionsLogLevel = 'error' | 'warn' | 'info' | 'debug' | 'debug2';
