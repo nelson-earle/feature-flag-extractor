@@ -1,7 +1,11 @@
 import * as ts from 'typescript';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { isNgLanguageService, NgLanguageService } from '@angular/language-service/api';
+import {
+    GetTcbResponse,
+    NgLanguageService,
+    isNgLanguageService,
+} from '@angular/language-service/api';
 import { TsLogger } from './ts-logger';
 import { Context } from '../context';
 import { LogLevel, Logger } from '../logger';
@@ -18,6 +22,9 @@ export class ProjectService {
     private tsLanguageServiceHost: ts.LanguageServiceHost;
     private tsLanguageService: ts.LanguageService;
     private ngLanguageService: NgLanguageService;
+
+    private tcbCache = new Map<TcbKey, GetTcbResponse>();
+    private tcbSourceMapCache = new Map<TcbKey, Record<string, ts.Node>>();
 
     constructor(ctx: Context, tsConfigPath: string, tsConfig: ts.ParsedCommandLine) {
         this.rootPath = ctx.root;
@@ -185,6 +192,39 @@ export class ProjectService {
         }
     };
 
+    private getTcb(key: TcbKey): GetTcbResponse {
+        const cached = this.tcbCache.get(key);
+        if (cached) return cached;
+
+        const tcbResponse = this.ngLanguageService.getTcb(key.templatePath, key.position);
+
+        if (!tcbResponse) {
+            throw new Error(`TCB not found for template: ${key}`);
+        }
+
+        this.logger.debug(`TCB file: ${tcbResponse.fileName}`);
+        this.logger.debug(`TCB selections: ${tcbResponse.selections.length}`);
+
+        // this.logger.debug(tcbResponse.content);
+
+        this.tcbCache.set(key, tcbResponse);
+        return tcbResponse;
+    }
+
+    private getTcbSourceMap(key: TcbKey, tcbSourceFile: ts.SourceFile): Record<string, ts.Node> {
+        const cached = this.tcbSourceMapCache.get(key);
+        if (cached) return cached;
+
+        const templateSourceMap: Record<string, ts.Node> = {};
+
+        ts.forEachChild(tcbSourceFile, node =>
+            parseTcbComments(tcbSourceFile, templateSourceMap, node)
+        );
+
+        this.tcbSourceMapCache.set(key, templateSourceMap);
+        return templateSourceMap;
+    }
+
     resolveTypeInTemplateAtPosition(
         templateFileName: string,
         position: number,
@@ -238,19 +278,8 @@ export class ProjectService {
         // }
 
         // Use getTcb to get the Type Check Block and position mappings
-        // TODO: cache TCB
-        const tcbResponse = this.ngLanguageService.getTcb(absoluteTemplatePath, position);
-
-        if (!tcbResponse) {
-            throw new Error(
-                `TCB not found for template: ${absoluteTemplatePath} (position=${position})`
-            );
-        }
-
-        this.logger.debug(`TCB file: ${tcbResponse.fileName}`);
-        this.logger.debug(`TCB selections: ${tcbResponse.selections.length}`);
-
-        // this.logger.debug(tcbResponse.content);
+        const tcbKey = TcbKey.intern(absoluteTemplatePath, position);
+        const tcbResponse = this.getTcb(tcbKey);
 
         const program = this.getProgram();
 
@@ -262,15 +291,6 @@ export class ProjectService {
         }
 
         const typeChecker = program.getTypeChecker();
-
-        // Find what node is at the selection position
-        const findNodeAtPosition = (node: ts.Node, pos: number): ts.Node | undefined => {
-            if (pos < node.pos || pos >= node.end) {
-                return undefined;
-            }
-            const child = ts.forEachChild(node, child => findNodeAtPosition(child, pos));
-            return child || node;
-        };
 
         // For each selection (position in TCB that maps to our template position)
         for (const selection of tcbResponse.selections) {
@@ -293,36 +313,9 @@ export class ProjectService {
 
         this.logger.debug('no TCB selections, falling back to comment parsing...');
 
-        // TODO: cache TCB expression source map
-        const templateExpressionSourceMap: Record<string, ts.Node> = {};
+        const templateSourceMap = this.getTcbSourceMap(tcbKey, tcbSourceFile);
 
-        const TCB_SOURCE_MAP_COMMENT_RE = /^\/\*(\d+,\d+)\*\/$/;
-
-        const parseCommentRanges = (
-            sourceFile: ts.SourceFile,
-            node: ts.Node,
-            nodeCommentRanges: ts.CommentRange[]
-        ): void => {
-            for (const commentRange of nodeCommentRanges) {
-                const text = sourceFile.text.substring(commentRange.pos, commentRange.end);
-                const sourceMapComment = text.match(TCB_SOURCE_MAP_COMMENT_RE);
-                if (sourceMapComment) {
-                    templateExpressionSourceMap[sourceMapComment[1]] = node;
-                }
-            }
-        };
-
-        const parseTcbComments = (node: ts.Node) => {
-            const commentRanges = ts.getTrailingCommentRanges(tcbSourceFile.text, node.getEnd());
-            if (commentRanges) {
-                parseCommentRanges(tcbSourceFile, node, commentRanges);
-            }
-            ts.forEachChild(node, parseTcbComments);
-        };
-
-        ts.forEachChild(tcbSourceFile, parseTcbComments);
-
-        const node = templateExpressionSourceMap[`${position},${positionEnd}`];
+        const node = templateSourceMap[`${position},${positionEnd}`];
         if (node) {
             const type = typeChecker.getTypeAtLocation(node);
             this.logger.debug(`TCB node: ${node.getFullText()}`);
@@ -334,4 +327,60 @@ export class ProjectService {
             `Unable to resolve type at position ${position} in template: ${absoluteTemplatePath}`
         );
     }
+}
+
+class TcbKey {
+    private static internCache: Map<string, TcbKey> = new Map();
+
+    static intern(templatePath: string, position: number): TcbKey {
+        const internedKey = TcbKey.internCache.get(templatePath);
+        if (internedKey) return internedKey;
+
+        const key = new TcbKey(templatePath, position);
+        TcbKey.internCache.set(templatePath, key);
+        return key;
+    }
+
+    readonly templatePath: string;
+    readonly position: number;
+
+    private constructor(templatePath: string, position: number) {
+        this.templatePath = templatePath;
+        this.position = position;
+    }
+
+    toString(): string {
+        return this.templatePath;
+    }
+}
+
+/**
+ * Find the smallest node at the given position.
+ */
+function findNodeAtPosition(node: ts.Node, pos: number): ts.Node | undefined {
+    if (pos < node.pos || pos >= node.end) {
+        return undefined;
+    }
+    const child = ts.forEachChild(node, child => findNodeAtPosition(child, pos));
+    return child || node;
+}
+
+const TCB_SOURCE_MAP_COMMENT_RE = /^\/\*(\d+,\d+)\*\/$/;
+
+function parseTcbComments(
+    tcbSourceFile: ts.SourceFile,
+    templateSourceMap: Record<string, ts.Node>,
+    node: ts.Node
+): void {
+    const commentRanges = ts.getTrailingCommentRanges(tcbSourceFile.text, node.getEnd());
+    if (commentRanges) {
+        for (const commentRange of commentRanges) {
+            const text = tcbSourceFile.text.substring(commentRange.pos, commentRange.end);
+            const sourceMapComment = text.match(TCB_SOURCE_MAP_COMMENT_RE);
+            if (sourceMapComment) {
+                templateSourceMap[sourceMapComment[1]] = node;
+            }
+        }
+    }
+    ts.forEachChild(node, node => parseTcbComments(tcbSourceFile, templateSourceMap, node));
 }
