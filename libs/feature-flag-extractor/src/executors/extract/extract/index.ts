@@ -7,7 +7,7 @@ import { ProjectService } from './project-service';
 
 export interface FlagRead {
     kind: 'ts' | 'template';
-    filePathRelative: string;
+    filePath: string;
     row: number;
     col: number;
     flagId: string;

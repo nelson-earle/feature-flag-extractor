@@ -40,9 +40,10 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     }
 
     for (const read of flagReads) {
+        const filePath = path.relative(ctx.root, read.filePath);
         const line = read.row + 1;
         const char = read.col + 1;
-        console.log(`${read.filePathRelative}:${line}:${char} [${read.kind}] | ${read.flagId}`);
+        console.log(`${filePath}:${line}:${char} [${read.kind}] | ${read.flagId}`);
     }
 
     console.log(flagReads.length);

@@ -28,10 +28,9 @@ export function extractFeatureFlagsFromTs(
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(
                     node.getStart()
                 );
-                const relativePath = path.relative(ctx.projectRoot, filePath);
                 flagReads.push({
                     kind: 'ts',
-                    filePathRelative: relativePath,
+                    filePath,
                     row: line,
                     col: character + 1,
                     flagId: flag,
@@ -48,7 +47,6 @@ export function extractFeatureFlagsFromTs(
                     );
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
-                        ctx.root,
                         projectService,
                         templateUrl,
                         template.content,

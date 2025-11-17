@@ -1,6 +1,5 @@
 import { Context } from '../context';
 import { FlagRead } from '.';
-import * as path from 'node:path';
 import * as ng from '@angular/compiler';
 import { ProjectService } from './project-service';
 import { typeContainsSymbol } from '../ts-util';
@@ -13,7 +12,6 @@ interface TemplateKeyedRead {
 
 export function extractFeatureFlagsFromTemplate(
     ctx: Context,
-    rootPath: string,
     projectService: ProjectService,
     templateUrl: string,
     template: string,
@@ -24,7 +22,6 @@ export function extractFeatureFlagsFromTemplate(
     const parsedTemplate = parseTemplate(template, templateUrl);
 
     const filePath = templateUrl.replace(/^file:\/\//, '');
-    const filePathRelative = path.relative(rootPath, filePath);
     const visitor = new FeatureFlagVisitor();
 
     for (const node of parsedTemplate.nodes) {
@@ -41,11 +38,7 @@ export function extractFeatureFlagsFromTemplate(
         const start = templateOffset + keyedRead.receiverSpan.start;
         const end = templateOffset + keyedRead.receiverSpan.end;
 
-        const receiverType = projectService.resolveTypeInTemplateAtPosition(
-            filePathRelative,
-            start,
-            end
-        );
+        const receiverType = projectService.resolveTypeInTemplateAtPosition(filePath, start, end);
         const receiverTypeContainsLDFlagSet = typeContainsSymbol(
             typeChecker,
             receiverType,
@@ -59,7 +52,7 @@ export function extractFeatureFlagsFromTemplate(
             // TODO: convert offset into correct row & col
             keyedReads.push({
                 kind: 'template',
-                filePathRelative,
+                filePath,
                 row: 0,
                 col: start,
                 flagId: keyedRead.flagId,
