@@ -46,13 +46,6 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
         console.log(`${filePath}:${line}:${char} [${read.kind}] | ${read.flagId}`);
     }
 
-    console.log(flagReads.length);
-
-    const expectedFlags = 18;
-    if (flagReads.length !== expectedFlags) {
-        return error(`expected ${expectedFlags} flags, found ${flagReads.length}`);
-    }
-
     return EXECUTOR_RESULT_SUCCESS;
 };
 
