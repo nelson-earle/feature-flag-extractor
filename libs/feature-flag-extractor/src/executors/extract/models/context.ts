@@ -1,6 +1,6 @@
 import type { ExecutorContext } from '@nx/devkit';
-import { Logger } from './logger';
-import { Options } from './schema';
+import { Logger } from '../logger';
+import { Options } from '../schema';
 
 export interface Context extends ExecutorContext {
     projectRoot: string;

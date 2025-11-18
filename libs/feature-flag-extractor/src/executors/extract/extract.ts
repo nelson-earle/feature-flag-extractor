@@ -1,17 +1,10 @@
 import * as ts from 'typescript';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { extractFeatureFlagsFromTs } from './ts';
-import { Context } from '../context';
+import { extractFeatureFlagsFromTs } from './extract-ts';
+import { Context } from './models/context';
 import { ProjectService } from './project-service';
-
-export interface FlagRead {
-    kind: 'ts' | 'template';
-    filePath: string;
-    row: number;
-    col: number;
-    flagId: string;
-}
+import { FlagRead } from './models/flag-read';
 
 export function extractFeatureFlags(ctx: Context): FlagRead[] {
     const tsConfigPath = path.resolve(ctx.root, ctx.options.tsConfig);

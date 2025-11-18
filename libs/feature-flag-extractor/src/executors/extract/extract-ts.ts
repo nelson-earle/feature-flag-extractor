@@ -1,11 +1,11 @@
 import * as ts from 'typescript';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { FlagRead } from '.';
-import { Context } from '../context';
-import { extractFeatureFlagsFromTemplate } from './angular';
+import { FlagRead } from './models/flag-read';
+import { Context } from './models/context';
+import { extractFeatureFlagsFromTemplate } from './extract-angular';
 import { ProjectService } from './project-service';
-import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from '../ts-util';
+import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
 
 export function extractFeatureFlagsFromTs(
     ctx: Context,

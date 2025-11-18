@@ -7,8 +7,8 @@ import {
     isNgLanguageService,
 } from '@angular/language-service/api';
 import { TsLogger } from './ts-logger';
-import { Context } from '../context';
-import { LogLevel, Logger } from '../logger';
+import { Context } from './models/context';
+import { LogLevel, Logger } from './logger';
 
 const angularLanguageServicePluginFactory: ts.server.PluginModuleFactory = require('@angular/language-service');
 

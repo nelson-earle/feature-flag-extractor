@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { LogLevel, Logger } from '../logger';
+import { LogLevel, Logger } from './logger';
 
 /**
  * Copied from: https://github.com/angular/vscode-ng-language-service/blob/19.2.x/server/src/logger.ts

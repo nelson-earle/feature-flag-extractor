@@ -3,16 +3,16 @@ jest.mock('node:fs', () => ({
     existsSync: () => true,
     readFileSync: jest.fn(),
 }));
-jest.mock('./angular', () => ({ extractFeatureFlagsFromTemplate: jest.fn(() => []) }));
+jest.mock('./extract-angular', () => ({ extractFeatureFlagsFromTemplate: jest.fn(() => []) }));
 
-import { extractFeatureFlagsFromTs } from './ts';
+import { extractFeatureFlagsFromTs } from './extract-ts';
 import { ExecutorContext } from '@nx/devkit';
 import * as ts from 'typescript';
 import { Random } from 'random-test-values';
-import { FlagRead } from '.';
-import { extractFeatureFlagsFromTemplate } from './angular';
+import { FlagRead } from './models/flag-read';
+import { extractFeatureFlagsFromTemplate } from './extract-angular';
 import * as fs from 'node:fs';
-import { buildExecutorContext } from '../../../test-utils';
+import { buildExecutorContext } from '../../test-utils';
 
 interface TestHost {
     ctx: ExecutorContext;

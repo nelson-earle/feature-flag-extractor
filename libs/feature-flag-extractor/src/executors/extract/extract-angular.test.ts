@@ -1,8 +1,8 @@
 import { ExecutorContext } from '@nx/devkit';
-import { extractFeatureFlagsFromTemplate } from './angular';
-import { buildExecutorContext } from '../../../test-utils';
+import { extractFeatureFlagsFromTemplate } from './extract-angular';
+import { buildExecutorContext } from '../../test-utils';
 import { Random } from 'random-test-values';
-import { FlagRead } from '.';
+import { FlagRead } from './models/flag-read';
 
 describe('extractFeatureFlagsFromTemplate', () => {
     let ctx: ExecutorContext;

@@ -2,9 +2,10 @@ import '../../polyfills';
 
 import type { PromiseExecutor, ExecutorContext } from '@nx/devkit';
 import type { Options } from './schema';
-import { extractFeatureFlags, FlagRead } from './extract';
+import { extractFeatureFlags } from './extract';
+import { FlagRead } from './models/flag-read';
 import { Logger, optionLogLevelToLogLevel } from './logger';
-import { Context } from './context';
+import { Context } from './models/context';
 import { ExecutorResult, error, EXECUTOR_RESULT_SUCCESS } from './executor-util';
 import * as path from 'node:path';
 import * as fs from 'node:fs';

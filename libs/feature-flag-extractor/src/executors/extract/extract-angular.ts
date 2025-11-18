@@ -1,8 +1,8 @@
-import { Context } from '../context';
-import { FlagRead } from '.';
+import { Context } from './models/context';
+import { FlagRead } from './models/flag-read';
 import * as ng from '@angular/compiler';
 import { ProjectService } from './project-service';
-import { typeContainsSymbol } from '../ts-util';
+import { typeContainsSymbol } from './ts-util';
 
 interface TemplateKeyedRead {
     exprSpan: ng.AbsoluteSourceSpan;
