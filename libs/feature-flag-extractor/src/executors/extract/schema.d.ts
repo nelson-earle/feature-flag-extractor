@@ -1,5 +1,6 @@
 export interface Options {
     tsConfig: string;
+    help?: boolean;
     logLevel?: OptionsLogLevel;
     locations?: boolean;
     output?: string;

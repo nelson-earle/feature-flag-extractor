@@ -11,10 +11,55 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { OutputStream } from './output';
 
+const HELP = `\
+An Nx plugin that extracts Launch Darkly feature flags from the target project.
+
+USAGE
+    nx extract-feature-flags <PROJECT_NAME> -- [<OPTIONS>...]
+
+OPTIONS
+    --tsConfig=<PATH>
+        The path of the project's TSConfig.
+        This is the only argument that is required and must be provided in the
+        project.json via the Nx target options. All other arguments may be
+        provided in the target config or on the command line.
+
+    --help
+        Print the help message and exit.
+
+    --logLevel=<LOG_LEVEL>
+        The maximum log level.
+        Possible values: error, warn, info, debug, debug2
+
+    --locations
+        Whether to print the locations of each use of a feature flag.
+
+    --output=<OUTPUT_PATH>
+        Write the output to OUTPUT_PATH.
+
+    --json
+        Whether to output as JSON.
+
+    --filterFiles=<FILE_FILTER>
+        Filter output to only include files that match this global regular expression.
+
+    --filterFlags=<FLAG_FILTER>
+        Filter output to only include flags that contain this substring.
+
+    --filterSource=<SOURCE_FILTER>
+        Filter output to only include flags that came from the component or template.
+        Possible values: component, template
+`;
+
 const extractFeatureFlagsExecutor: PromiseExecutor = async (
     options: Options,
     executorCtx: ExecutorContext
 ) => {
+    if (options.help) {
+        process.stdout.write(HELP);
+        return EXECUTOR_RESULT_SUCCESS;
+    }
+
     if (options.locations && options.json) {
         return error(`The following arguments are mutually exclusive: '--locations' & '--json'`);
     }
