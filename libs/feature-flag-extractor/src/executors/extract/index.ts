@@ -3,7 +3,7 @@ import '../../polyfills';
 import type { PromiseExecutor, ExecutorContext } from '@nx/devkit';
 import type { Options } from './schema';
 import { extractFeatureFlags } from './extract';
-import { FlagRead } from './models/flag-read';
+import { optionsSourceToFlagReadSource, FlagRead } from './models/flag-read';
 import { Logger, optionLogLevelToLogLevel } from './logger';
 import { Context } from './models/context';
 import { ExecutorResult, error, EXECUTOR_RESULT_SUCCESS } from './executor-util';
@@ -38,7 +38,7 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     const logger = new Logger(logLevel);
     const ctx: Context = { ...executorCtx, projectRoot, logger, options };
 
-    const flagReads: FlagRead[] = [];
+    let flagReads: FlagRead[] = [];
 
     try {
         const tsFlagReads = extractFeatureFlags(ctx);
@@ -46,6 +46,18 @@ const extractFeatureFlagsExecutor: PromiseExecutor = async (
     } catch (ex) {
         const message = ex instanceof Error ? ex.message : 'An unknown error occurred';
         return error(message);
+    }
+
+    if (options.filterFiles || options.filterFlags || options.filterSource) {
+        const fileFilter = options.filterFiles ? new RegExp(options.filterFiles, 'g') : null;
+        const flagFilter = options.filterFlags;
+        const sourceFilter = optionsSourceToFlagReadSource(options.filterSource);
+        flagReads = flagReads.filter(r => {
+            if (fileFilter && !fileFilter.test(r.filePath)) return false;
+            if (flagFilter && !r.flagId.includes(flagFilter)) return false;
+            if (sourceFilter && r.source !== sourceFilter) return false;
+            return true;
+        });
     }
 
     const flagReadsById = Map.groupBy(flagReads, r => r.flagId);
@@ -78,7 +90,7 @@ async function outputHumanReadable(
                     const filePath = path.relative(root, read.filePath);
                     const line = read.row + 1;
                     const char = read.col + 1;
-                    await stream.write(`  ${filePath}:${line}:${char} [${read.kind}]\n`);
+                    await stream.write(`  ${filePath}:${line}:${char} [${read.source}]\n`);
                 }
             }
         }

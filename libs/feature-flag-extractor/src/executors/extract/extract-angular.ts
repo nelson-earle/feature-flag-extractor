@@ -51,7 +51,7 @@ export function extractFeatureFlagsFromTemplate(
 
             // TODO: convert offset into correct row & col
             keyedReads.push({
-                kind: 'template',
+                source: 'tmpl',
                 filePath,
                 row: 0,
                 col: start,

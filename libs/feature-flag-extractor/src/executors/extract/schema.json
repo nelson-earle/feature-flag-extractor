@@ -26,6 +26,19 @@
         "json": {
             "type": "boolean",
             "description": "Whether to print the output as JSON"
+        },
+        "filterFiles": {
+            "type": "string",
+            "description": "Filter output to only include files that match this global regular expression"
+        },
+        "filterFlags": {
+            "type": "string",
+            "description": "Filter output to only include flags that contain this substring"
+        },
+        "filterSource": {
+            "type": "string",
+            "description": "Filter output to only include flags that came from the component or template",
+            "enum": ["component", "template"]
         }
     }
 }

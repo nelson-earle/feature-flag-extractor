@@ -29,7 +29,7 @@ export function extractFeatureFlagsFromTs(
                     node.getStart()
                 );
                 flagReads.push({
-                    kind: 'ts',
+                    source: 'comp',
                     filePath,
                     row: line,
                     col: character + 1,
