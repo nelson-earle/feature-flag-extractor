@@ -13,5 +13,5 @@
         "useDefineForClassFields": false
     },
     "files": ["src/test-setup.ts", "src/test-utils.ts"],
-    "include": ["src/**/*.test.ts"]
+    "include": ["src/**/testing/*.ts", "src/**/*.test.ts"]
 }

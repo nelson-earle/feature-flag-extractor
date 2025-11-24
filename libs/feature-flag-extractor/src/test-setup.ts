@@ -1,6 +1,1 @@
-import { setupZoneTestEnv } from 'jest-preset-angular/setup-env/zone';
-
-setupZoneTestEnv({
-    errorOnUnknownElements: true,
-    errorOnUnknownProperties: true,
-});
+// Test setup file - currently empty as no special setup is needed for these tests
