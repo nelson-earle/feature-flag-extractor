@@ -4,6 +4,12 @@ import * as ng from '@angular/compiler';
 import { ProjectService } from './project-service';
 import { typeContainsSymbol } from './ts-util';
 
+export interface TemplateMetadata {
+    path: string;
+    content: string;
+    offset: number;
+}
+
 interface TemplateKeyedRead {
     exprSpan: ng.AbsoluteSourceSpan;
     receiverSpan: ng.AbsoluteSourceSpan;
@@ -13,15 +19,12 @@ interface TemplateKeyedRead {
 export function extractFeatureFlagsFromTemplate(
     ctx: Context,
     projectService: ProjectService,
-    templateUrl: string,
-    template: string,
-    templateOffset: number
+    template: TemplateMetadata
 ): FlagRead[] {
     const typeChecker = projectService.getTypeChecker();
 
-    const parsedTemplate = parseTemplate(template, templateUrl);
+    const parsedTemplate = parseTemplate(`file://${template.path}`, template.content);
 
-    const filePath = templateUrl.replace(/^file:\/\//, '');
     const visitor = new FeatureFlagVisitor();
 
     for (const node of parsedTemplate.nodes) {
@@ -35,10 +38,14 @@ export function extractFeatureFlagsFromTemplate(
         //     `TEST [src=TMPL] keyed read: \`\`\` ${template.substring(keyedRead.exprSpan.start, keyedRead.exprSpan.end)} \`\`\``
         // );
 
-        const start = templateOffset + keyedRead.receiverSpan.start;
-        const end = templateOffset + keyedRead.receiverSpan.end;
+        const start = template.offset + keyedRead.receiverSpan.start;
+        const end = template.offset + keyedRead.receiverSpan.end;
 
-        const receiverType = projectService.resolveTypeInTemplateAtPosition(filePath, start, end);
+        const receiverType = projectService.resolveTypeInTemplateAtPosition(
+            template.path,
+            start,
+            end
+        );
         const receiverTypeContainsLDFlagSet = typeContainsSymbol(
             typeChecker,
             receiverType,
@@ -46,13 +53,16 @@ export function extractFeatureFlagsFromTemplate(
         );
 
         if (receiverTypeContainsLDFlagSet) {
-            const text = template.substring(keyedRead.exprSpan.start, keyedRead.exprSpan.end);
+            const text = template.content.substring(
+                keyedRead.exprSpan.start,
+                keyedRead.exprSpan.end
+            );
             ctx.logger.debug(`>>> EXTRACT [src=TMPL] flag read: \`\`\` ${text} \`\`\``);
 
             // TODO: convert offset into correct row & col
             keyedReads.push({
                 source: 'tmpl',
-                filePath,
+                filePath: template.path,
                 row: 0,
                 col: start,
                 flagId: keyedRead.flagId,
@@ -66,9 +76,8 @@ export function extractFeatureFlagsFromTemplate(
 /**
  * Parse an Angular template into an AST
  */
-function parseTemplate(template: string, templateUrl: string): ng.ParsedTemplate {
+function parseTemplate(templateUrl: string, template: string): ng.ParsedTemplate {
     try {
-        // TODO: take the absolute template file path as an arg and turn it into a URL here
         const parsed = ng.parseTemplate(template, templateUrl, {
             enableBlockSyntax: true,
             enableLetSyntax: true,

@@ -365,13 +365,11 @@ describe('extractFeatureFlagsFromTs', () => {
         extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
-            ctx,
-            projectService,
-            `file://${filePath}`,
-            template,
-            110
-        );
+        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            path: filePath,
+            content: template,
+            offset: 110,
+        });
     });
 
     it('should extract flags from a component class declaration with a quoted-key inline template', () => {
@@ -388,13 +386,11 @@ describe('extractFeatureFlagsFromTs', () => {
         extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
-            ctx,
-            projectService,
-            `file://${filePath}`,
-            template,
-            112
-        );
+        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            path: filePath,
+            content: template,
+            offset: 112,
+        });
     });
 
     //#endregion Process Inline Template
@@ -419,13 +415,11 @@ describe('extractFeatureFlagsFromTs', () => {
         extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
-            ctx,
-            projectService,
-            `file://${templatePath}`,
-            template,
-            0
-        );
+        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            path: templatePath,
+            content: template,
+            offset: 0,
+        });
     });
 
     it('should extract flags from a component class declaration with a quoted-key external template', () => {
@@ -446,13 +440,11 @@ describe('extractFeatureFlagsFromTs', () => {
         extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
-            ctx,
-            projectService,
-            `file://${templatePath}`,
-            template,
-            0
-        );
+        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            path: templatePath,
+            content: template,
+            offset: 0,
+        });
     });
 
     //#endregion Process External Template

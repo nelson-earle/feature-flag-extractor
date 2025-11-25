@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { FlagRead } from './models/flag-read';
 import { Context } from './models/context';
-import { extractFeatureFlagsFromTemplate } from './extract-angular';
+import { extractFeatureFlagsFromTemplate, TemplateMetadata } from './extract-angular';
 import { ProjectService } from './project-service';
 import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
 
@@ -41,16 +41,13 @@ export function extractFeatureFlagsFromTs(
             if (decoratorArg) {
                 const template = getTemplateFromComponentMetadata(ctx, filePath, decoratorArg);
                 if (template) {
-                    const templateUrl = `file://${template.path}`;
                     ctx.logger.info(
                         ` found template: ${template.path} (offset=${template.offset})`
                     );
                     const templateFlagReads = extractFeatureFlagsFromTemplate(
                         ctx,
                         projectService,
-                        templateUrl,
-                        template.content,
-                        template.offset
+                        template
                     );
                     flagReads.push(...templateFlagReads);
                 }
@@ -188,7 +185,7 @@ function getTemplateFromComponentMetadata(
     ctx: Context,
     filePath: string,
     metadata: ts.ObjectLiteralExpression
-): { path: string; content: string; offset: number } | null {
+): TemplateMetadata | null {
     for (const prop of metadata.properties) {
         if (ts.isPropertyAssignment(prop)) {
             if (isObjectKeyAndEquals(prop.name, 'template')) {

@@ -41,10 +41,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
 
     const templateName = 'impl.html';
     const templatePath = `/${templateName}`;
-    const templateUrl = `file://${templatePath}`;
 
     function extract(template: string) {
-        return extractFeatureFlagsFromTemplate(ctx, mockProjectService, templateUrl, template, 0);
+        return extractFeatureFlagsFromTemplate(ctx, mockProjectService, {
+            path: templatePath,
+            content: template,
+            offset: 0,
+        });
     }
 
     it('should return no entries for empty template', () => {
