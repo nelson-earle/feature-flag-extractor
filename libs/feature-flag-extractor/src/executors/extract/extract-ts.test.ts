@@ -366,6 +366,7 @@ describe('extractFeatureFlagsFromTs', () => {
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            kind: 'inline',
             path: filePath,
             content: template,
             offset: 110,
@@ -387,6 +388,7 @@ describe('extractFeatureFlagsFromTs', () => {
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            kind: 'inline',
             path: filePath,
             content: template,
             offset: 112,
@@ -416,6 +418,7 @@ describe('extractFeatureFlagsFromTs', () => {
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            kind: 'external',
             path: templatePath,
             content: template,
             offset: 0,
@@ -441,6 +444,7 @@ describe('extractFeatureFlagsFromTs', () => {
 
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
         expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+            kind: 'external',
             path: templatePath,
             content: template,
             offset: 0,

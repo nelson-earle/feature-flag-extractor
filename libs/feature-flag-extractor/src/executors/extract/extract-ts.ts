@@ -6,6 +6,7 @@ import { Context } from './models/context';
 import { extractFeatureFlagsFromTemplate, TemplateMetadata } from './extract-angular';
 import { ProjectService } from './project-service';
 import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
+import { SourceFilePositionManager } from './source-file-position-manager';
 
 export function extractFeatureFlagsFromTs(
     ctx: Context,
@@ -28,6 +29,7 @@ export function extractFeatureFlagsFromTs(
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(
                     node.getStart()
                 );
+                // TODO: report position of element access key, not the element access itself
                 flagReads.push({
                     source: 'comp',
                     filePath,
@@ -49,7 +51,30 @@ export function extractFeatureFlagsFromTs(
                         projectService,
                         template
                     );
-                    flagReads.push(...templateFlagReads);
+
+                    const positionManager = new SourceFilePositionManager(
+                        ctx,
+                        filePath,
+                        template.kind === 'external' ? template.content : sourceFile.getFullText()
+                    );
+
+                    // Translate offset of flag ID to row & col in source file
+                    for (const tfr of templateFlagReads) {
+                        const templateLine = positionManager.getLineAtOffset(tfr.offset);
+                        let row = 0;
+                        let col = tfr.offset;
+                        if (templateLine.line) {
+                            row = templateLine.row;
+                            col = templateLine.col;
+                        }
+                        flagReads.push({
+                            source: tfr.source,
+                            filePath: tfr.filePath,
+                            row,
+                            col,
+                            flagId: tfr.flagId,
+                        });
+                    }
                 }
             }
         }
@@ -181,6 +206,8 @@ function extractDynamicFlag(
     return null;
 }
 
+const TEMPLATE_LINE_RE = /^(\s*['"`]).*/s;
+
 function getTemplateFromComponentMetadata(
     ctx: Context,
     filePath: string,
@@ -192,9 +219,15 @@ function getTemplateFromComponentMetadata(
                 if (isStaticString(prop.initializer)) {
                     const beforeTemplate = prop.initializer
                         .getFullText()
-                        .replace(/^(\s*['"`]).*/s, '$1');
+                        .replace(TEMPLATE_LINE_RE, '$1');
                     const offset = prop.initializer.getFullStart() + beforeTemplate.length;
-                    return { path: filePath, content: prop.initializer.text, offset };
+
+                    return {
+                        kind: 'inline',
+                        path: filePath,
+                        content: prop.initializer.text,
+                        offset,
+                    };
                 } else {
                     ctx.logger.warn(
                         `inline template is not a string literal in component: ${filePath}`
@@ -221,7 +254,12 @@ function getTemplateFromComponentMetadata(
                     // TODO: just try to read and detect ENOTFOUND
                     if (fs.existsSync(templatePath)) {
                         const content = fs.readFileSync(templatePath, 'utf-8');
-                        return { path: templatePath, content, offset: 0 };
+                        return {
+                            kind: 'external',
+                            path: templatePath,
+                            content,
+                            offset: 0,
+                        };
                     } else {
                         ctx.logger.warn(`template URL file not found for component: ${filePath}`);
                         return null;

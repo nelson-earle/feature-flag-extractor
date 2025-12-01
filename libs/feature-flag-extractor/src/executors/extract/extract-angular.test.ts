@@ -1,8 +1,7 @@
 import { Context } from './models/context';
-import { extractFeatureFlagsFromTemplate } from './extract-angular';
+import { extractFeatureFlagsFromTemplate, TemplateFlagRead } from './extract-angular';
 import { buildExecutorContext } from '../../test-utils';
 import { Random } from 'random-test-values';
-import { FlagRead } from './models/flag-read';
 import { Logger } from './logger';
 import { Options } from './schema';
 import * as ts from 'typescript';
@@ -44,6 +43,7 @@ describe('extractFeatureFlagsFromTemplate', () => {
 
     function extract(template: string) {
         return extractFeatureFlagsFromTemplate(ctx, mockProjectService, {
+            kind: 'external',
             path: templatePath,
             content: template,
             offset: 0,
@@ -52,7 +52,7 @@ describe('extractFeatureFlagsFromTemplate', () => {
 
     it('should return no entries for empty template', () => {
         const template = ``;
-        const expectedFlagReads: FlagRead[] = [];
+        const expectedFlagReads: TemplateFlagRead[] = [];
 
         const actual = extract(template);
 
@@ -62,8 +62,8 @@ describe('extractFeatureFlagsFromTemplate', () => {
     it('should return an entry for @switch', () => {
         const flagId = Random.String();
         const template = `@switch (flags['${flagId}']) {}`;
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, row: 0, col: 9, flagId },
+        const expectedFlagReads: TemplateFlagRead[] = [
+            { source: 'tmpl', filePath: templatePath, offset: 15, flagId },
         ];
 
         const actual = extract(template);
@@ -74,8 +74,8 @@ describe('extractFeatureFlagsFromTemplate', () => {
     it('should return an entry for @case', () => {
         const flagId = Random.String();
         const template = `@switch (x) { @case (flags['${flagId}']) {} }`;
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, row: 0, col: 21, flagId },
+        const expectedFlagReads: TemplateFlagRead[] = [
+            { source: 'tmpl', filePath: templatePath, offset: 27, flagId },
         ];
 
         const actual = extract(template);
@@ -91,19 +91,17 @@ describe('extractFeatureFlagsFromTemplate', () => {
             @else if (flags['${flagId2}']) {}
             @else {}
         `;
-        const expectedFlagReads: FlagRead[] = [
+        const expectedFlagReads: TemplateFlagRead[] = [
             {
                 source: 'tmpl',
                 filePath: templatePath,
-                row: 0,
-                col: 1 + 17,
+                offset: 1 + 23,
                 flagId: flagId1,
             },
             {
                 source: 'tmpl',
                 filePath: templatePath,
-                row: 0,
-                col: 1 + 17 + 7 + flagId1.length + 6 + 1 + 22,
+                offset: 1 + 23 + 1 + flagId1.length + 6 + 1 + 28,
                 flagId: flagId2,
             },
         ];
@@ -116,8 +114,8 @@ describe('extractFeatureFlagsFromTemplate', () => {
     it('should return an entry for bound attribute', () => {
         const flagId = Random.String();
         const template = `<p [class]="flags['${flagId}']"></p>`;
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, row: 0, col: 12, flagId },
+        const expectedFlagReads: TemplateFlagRead[] = [
+            { source: 'tmpl', filePath: templatePath, offset: 18, flagId },
         ];
 
         const actual = extract(template);
@@ -128,8 +126,8 @@ describe('extractFeatureFlagsFromTemplate', () => {
     it('should return an entry for bound event', () => {
         const flagId = Random.String();
         const template = `<div (click)="onClick(flags['${flagId}'])"></div>`;
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, row: 0, col: 22, flagId },
+        const expectedFlagReads: TemplateFlagRead[] = [
+            { source: 'tmpl', filePath: templatePath, offset: 28, flagId },
         ];
 
         const actual = extract(template);
@@ -140,8 +138,8 @@ describe('extractFeatureFlagsFromTemplate', () => {
     it('should return an entry for bound text', () => {
         const flagId = Random.String();
         const template = `{{ flags['${flagId}'] }}`;
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, row: 0, col: 3, flagId },
+        const expectedFlagReads: TemplateFlagRead[] = [
+            { source: 'tmpl', filePath: templatePath, offset: 9, flagId },
         ];
 
         const actual = extract(template);
@@ -152,8 +150,8 @@ describe('extractFeatureFlagsFromTemplate', () => {
     it('should return an entry for @let', () => {
         const flagId = Random.String();
         const template = `@let x = flags['${flagId}'];`;
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, row: 0, col: 9, flagId },
+        const expectedFlagReads: TemplateFlagRead[] = [
+            { source: 'tmpl', filePath: templatePath, offset: 15, flagId },
         ];
 
         const actual = extract(template);
