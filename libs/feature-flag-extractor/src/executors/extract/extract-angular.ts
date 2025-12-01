@@ -1,10 +1,11 @@
 import { Context } from './models/context';
-import { FlagRead } from './models/flag-read';
+import { FlagReadSource } from './models/flag-read';
 import * as ng from '@angular/compiler';
 import { ProjectService } from './project-service';
 import { typeContainsSymbol } from './ts-util';
 
 export interface TemplateMetadata {
+    kind: 'inline' | 'external';
     path: string;
     content: string;
     offset: number;
@@ -13,6 +14,14 @@ export interface TemplateMetadata {
 interface TemplateKeyedRead {
     exprSpan: ng.AbsoluteSourceSpan;
     receiverSpan: ng.AbsoluteSourceSpan;
+    keySpan: ng.AbsoluteSourceSpan;
+    flagId: string;
+}
+
+export interface TemplateFlagRead {
+    source: FlagReadSource;
+    filePath: string;
+    offset: number;
     flagId: string;
 }
 
@@ -20,7 +29,7 @@ export function extractFeatureFlagsFromTemplate(
     ctx: Context,
     projectService: ProjectService,
     template: TemplateMetadata
-): FlagRead[] {
+): TemplateFlagRead[] {
     const typeChecker = projectService.getTypeChecker();
 
     const parsedTemplate = parseTemplate(`file://${template.path}`, template.content);
@@ -31,7 +40,7 @@ export function extractFeatureFlagsFromTemplate(
         node.visit(visitor);
     }
 
-    const keyedReads: FlagRead[] = [];
+    const keyedReads: TemplateFlagRead[] = [];
 
     for (const keyedRead of visitor.getKeyedReads()) {
         // ctx.logger.debug(
@@ -59,12 +68,10 @@ export function extractFeatureFlagsFromTemplate(
             );
             ctx.logger.debug(`>>> EXTRACT [src=TMPL] flag read: \`\`\` ${text} \`\`\``);
 
-            // TODO: convert offset into correct row & col
             keyedReads.push({
                 source: 'tmpl',
                 filePath: template.path,
-                row: 0,
-                col: start,
+                offset: template.offset + keyedRead.keySpan.start,
                 flagId: keyedRead.flagId,
             });
         }
@@ -242,13 +249,17 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         this.keyedReads = keyedReads;
     }
 
-    private addKeyedRead(expr: ng.AST, receiver: ng.AST, key: string) {
+    private addKeyedRead(
+        expr: ng.AST,
+        receiver: ng.AST,
+        keySpan: ng.AbsoluteSourceSpan,
+        key: string
+    ) {
         const strippedFlagId = key.replace(/["']/g, '');
-        // TODO: fix span location to be the actual row/col in the source instead of byte offset
-        // start/end.
         this.keyedReads.push({
             exprSpan: expr.sourceSpan,
             receiverSpan: receiver.sourceSpan,
+            keySpan,
             flagId: strippedFlagId,
         });
     }
@@ -265,7 +276,7 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         ctx: FeatureFlagAstVisitorContext
     ): FeatureFlagAstVisitorResult {
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            this.addKeyedRead(ast, ast.receiver, ast.key.value);
+            this.addKeyedRead(ast, ast.receiver, ast.key.sourceSpan, ast.key.value);
         } else {
             super.visitKeyedRead(ast, ctx);
         }
@@ -283,7 +294,7 @@ class FeatureFlagAstVisitor extends ng.RecursiveAstVisitor {
         ctx: FeatureFlagAstVisitorContext
     ): FeatureFlagAstVisitorResult {
         if (ast.key instanceof ng.LiteralPrimitive && typeof ast.key.value === 'string') {
-            this.addKeyedRead(ast, ast.receiver, ast.key.value);
+            this.addKeyedRead(ast, ast.receiver, ast.key.sourceSpan, ast.key.value);
         } else {
             super.visitSafeKeyedRead(ast, ctx);
         }
