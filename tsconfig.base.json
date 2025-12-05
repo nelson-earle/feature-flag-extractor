@@ -1,10 +1,10 @@
 {
     "compileOnSave": false,
     "compilerOptions": {
+        "declaration": true,
         "baseUrl": ".",
         "rootDir": ".",
         "sourceMap": true,
-        "declaration": false,
         "moduleResolution": "node",
         "experimentalDecorators": true,
         "importHelpers": true,
@@ -16,7 +16,7 @@
         "typeRoots": ["node_modules/@types"],
         "types": ["node"],
         "paths": {
-            "feature-flag-extractor": ["libs/feature-flag-extractor/src/index.ts"]
+            "feature-flag-extractor": ["./libs/feature-flag-extractor/src/index.ts"]
         }
     },
     "exclude": ["node_modules", "tmp"]

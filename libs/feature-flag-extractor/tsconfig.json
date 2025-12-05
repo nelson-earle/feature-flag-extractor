@@ -1,12 +1,10 @@
 /* To learn more about this file see: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
 {
     "extends": "../../tsconfig.base.json",
-    "references": [
-        { "path": "./tsconfig.lib.json" },
-        { "path": "./tsconfig.test.json" },
-    ],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.test.json" }],
     "compileOnSave": false,
     "compilerOptions": {
+        "composite": true,
         "outDir": "../../dist/out-tsc",
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
