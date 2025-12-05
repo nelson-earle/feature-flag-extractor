@@ -251,8 +251,7 @@ function getTemplateFromComponentMetadata(
                     const componentDir = path.dirname(filePath);
                     const templatePath = path.resolve(componentDir, templateUrl);
 
-                    // TODO: just try to read and detect ENOTFOUND
-                    if (fs.existsSync(templatePath)) {
+                    try {
                         const content = fs.readFileSync(templatePath, 'utf-8');
                         return {
                             kind: 'external',
@@ -260,9 +259,20 @@ function getTemplateFromComponentMetadata(
                             content,
                             offset: 0,
                         };
-                    } else {
-                        ctx.logger.warn(`template URL file not found for component: ${filePath}`);
-                        return null;
+                    } catch (err) {
+                        if (
+                            err &&
+                            typeof err === 'object' &&
+                            'code' in err &&
+                            err.code === 'ENOENT'
+                        ) {
+                            ctx.logger.warn(
+                                `template URL file not found for component: ${filePath}`
+                            );
+                            return null;
+                        } else {
+                            throw err;
+                        }
                     }
                 } catch (error) {
                     const message = error instanceof Error ? error.message : `${error}`;
