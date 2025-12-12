@@ -121,335 +121,418 @@ describe('extractFeatureFlagsFromTs', () => {
         (extractFeatureFlagsFromTemplate as jest.Mock).mockClear();
     });
 
-    //#region Single Flag Read Variations
+    describe('Element Access Flag Read', () => {
+        it('should return no entries for empty program', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(filePath, '');
+            const expectedFlagReads: FlagRead[] = [];
 
-    it('should return no entries for empty program', () => {
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(filePath, '');
-        const expectedFlagReads: FlagRead[] = [];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return no entries for element access with incorrect receiver type', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: Record<string, unknown> = {};
+                const value = flags['${flagId}'];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [];
 
-    it('should return no entries for element access with incorrect receiver type', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: Record<string, unknown> = {};
-            const value = flags['${flagId}'];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with string literal', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                const value = flags['${flagId}'];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 3, col: 31, flagId },
+            ];
 
-    it('should return an entry for element access with string literal', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            const value = flags['${flagId}'];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 3, col: 27, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with no-sub template literal', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                const value = flags[\`${flagId}\`];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 3, col: 31, flagId },
+            ];
 
-    it('should return an entry for element access with no-sub template literal', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            const value = flags[\`${flagId}\`];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 3, col: 27, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return no entries for element access with sub template literal', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                // Must be typed as 'string' to prevent the compiler from inlining
+                // this and turning the key into a 'NoSubstitutionTemplateLiteral'.
+                const x: string = '-abc';
+                const value = flags[\`${flagId}\${x}\`];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [];
 
-    it('should return no entries for element access with sub template literal', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            // Must be typed as 'string' to prevent the compiler from inlining
-            // this and turning the key into a 'NoSubstitutionTemplateLiteral'.
-            const x: string = '-abc';
-            const value = flags[\`${flagId}\${x}\`];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with a literal-type identifier', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                const flagId = '${flagId}';
+                const value = flags[flagId];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 4, col: 31, flagId },
+            ];
 
-    it('should return an entry for element access with a literal-type identifier', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            const flagId = '${flagId}';
-            const value = flags[flagId];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 4, col: 27, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with a string-type identifier', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                const flagId: string = '${flagId}';
+                const value = flags[flagId];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 4, col: 31, flagId },
+            ];
 
-    it('should return an entry for element access with a string-type identifier', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            const flagId: string = '${flagId}';
-            const value = flags[flagId];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 4, col: 27, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return no entries for element access with non-string identifier', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                const flagId = 0;
+                const value = flags[flagId];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [];
 
-    it('should return no entries for element access with non-string identifier', () => {
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            const flagId = 0;
-            const value = flags[flagId];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with a property read', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                const flags: LDFlagSet = {};
+                const flagIds = { x: '${flagId}' };
+                const value = flags[flagIds.x];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 4, col: 31, flagId },
+            ];
 
-    it('should return an entry for element access with a property read', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            const flags: LDFlagSet = {};
-            const flagIds = { x: '${flagId}' };
-            const value = flags[flagIds.x];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 4, col: 27, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with a class property read', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                class Service {
+                    flagId = '${flagId}';
+                    method = (flags: LDFlagSet) => flags[this.flagId];
+                }
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 4, col: 52, flagId },
+            ];
 
-    it('should return an entry for element access with a class property read', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            class Service {
-                flagId = '${flagId}';
-                method = (flags: LDFlagSet) => flags[this.flagId];
-            }
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 4, col: 48, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access with a static property read', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                class Service {
+                    static FLAG_ID = '${flagId}';
+                    method = (flags: LDFlagSet) => flags[Service.FLAG_ID];
+                }
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 4, col: 52, flagId },
+            ];
 
-    it('should return an entry for element access with a static property read', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            class Service {
-                static FLAG_ID = '${flagId}';
-                method = (flags: LDFlagSet) => flags[Service.FLAG_ID];
-            }
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 4, col: 48, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            expect(actual).toEqual(expectedFlagReads);
+        });
 
-        expect(actual).toEqual(expectedFlagReads);
-    });
+        it('should return an entry for element access from a function call', () => {
+            const flagId = Random.String();
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { LDFlagSet } from 'launchdarkly-js-client-sdk';
+                function getFlags(): LDFlagSet {
+                    return {};
+                }
+                const value = getFlags()['${flagId}'];
+                `
+            );
+            const expectedFlagReads: FlagRead[] = [
+                { source: 'comp', filePath, row: 5, col: 31, flagId },
+            ];
 
-    it('should return an entry for element access from a function call', () => {
-        const flagId = Random.String();
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { LDFlagSet } from 'launchdarkly-js-client-sdk';
-            function getFlags(): LDFlagSet {
-                return {};
-            }
-            const value = getFlags()['${flagId}'];
-            `
-        );
-        const expectedFlagReads: FlagRead[] = [
-            { source: 'comp', filePath, row: 5, col: 27, flagId },
-        ];
+            const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-        expect(actual).toEqual(expectedFlagReads);
-    });
-
-    //#endregion Single Flag Read Variations
-
-    //#region Process Inline Template
-
-    it('should extract flags from a component class declaration with an inline template', () => {
-        const template = '<p></p>';
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { Component } from '@angular/core';
-            @Component({ selector: 'test', template: '${template}' })
-            class TestComponent {}
-            `
-        );
-
-        extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-            kind: 'inline',
-            path: filePath,
-            content: template,
-            offset: 110,
+            expect(actual).toEqual(expectedFlagReads);
         });
     });
 
-    it('should extract flags from a component class declaration with a quoted-key inline template', () => {
-        const template = '<p></p>';
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { Component } from '@angular/core';
-            @Component({ selector: 'test', 'template': '${template}' })
-            class TestComponent {}
-            `
-        );
+    describe('Process Inline Template', () => {
+        it('should extract flags from a component class declaration with an inline template', () => {
+            const template = '<p></p>';
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                @Component({ selector: 'test', template: '${template}' })
+                class TestComponent {}
+                `
+            );
 
-        extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-            kind: 'inline',
-            path: filePath,
-            content: template,
-            offset: 112,
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+                kind: 'inline',
+                path: filePath,
+                content: template,
+                offset: 118,
+            });
+        });
+
+        it('should extract flags from a component class declaration with a quoted-key inline template', () => {
+            const template = '<p></p>';
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                @Component({ selector: 'test', 'template': '${template}' })
+                class TestComponent {}
+                `
+            );
+
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+                kind: 'inline',
+                path: filePath,
+                content: template,
+                offset: 120,
+            });
         });
     });
 
-    //#endregion Process Inline Template
+    describe('Process External Template', () => {
+        it('should extract flags from a component class declaration with a string literal template URL', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                @Component({ selector: 'test', templateUrl: './${templateName}' })
+                class TestComponent {}
+                `
+            );
+            const template = `<p>${Random.String()}</p>`;
+            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+                if (path === templatePath) return template;
+                throw new Error(`unexpected file read: ${path}`);
+            });
 
-    //#region Process External Template
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
-    it('should extract flags from a component class declaration with an external template', () => {
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { Component } from '@angular/core';
-            @Component({ selector: 'test', templateUrl: './${templateName}' })
-            class TestComponent {}
-            `
-        );
-        const template = `<p>${Random.String()}</p>`;
-        (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-            if (path === templatePath) return template;
-            throw new Error(`unexpected file read: ${path}`);
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+                kind: 'external',
+                path: templatePath,
+                content: template,
+                offset: 0,
+            });
         });
 
-        extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+        it('should extract flags from a component class declaration with a no-sub template literal template URL', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                @Component({ selector: 'test', templateUrl: \`./${templateName}\` })
+                class TestComponent {}
+                `
+            );
+            const template = `<p>${Random.String()}</p>`;
+            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+                if (path === templatePath) return template;
+                throw new Error(`unexpected file read: ${path}`);
+            });
 
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-            kind: 'external',
-            path: templatePath,
-            content: template,
-            offset: 0,
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+                kind: 'external',
+                path: templatePath,
+                content: template,
+                offset: 0,
+            });
+        });
+
+        it('should not extract flags from a component class declaration with a sub template literal template URL', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                const indirectTemplateUrl: string = '${templateName}';
+                @Component({ selector: 'test', templateUrl: \`\${indirectTemplateUrl}\` })
+                class TestComponent {}
+                `
+            );
+            const template = `<p>${Random.String()}</p>`;
+            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+                if (path === templatePath) return template;
+                throw new Error(`unexpected file read: ${path}`);
+            });
+
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+            expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+        });
+
+        it('should not extract flags from a component class declaration with a literal-type identifier template URL', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                const templateUrl = '${templateName}';
+                @Component({ selector: 'test', templateUrl })
+                class TestComponent {}
+                `
+            );
+            const template = `<p>${Random.String()}</p>`;
+            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+                if (path === templatePath) return template;
+                throw new Error(`unexpected file read: ${path}`);
+            });
+
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+            expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+        });
+
+        it('should not extract flags from a component class declaration with a string-type identifier template URL', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                const templateUrl: string = '${templateName}';
+                @Component({ selector: 'test', templateUrl })
+                class TestComponent {}
+                `
+            );
+            const template = `<p>${Random.String()}</p>`;
+            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+                if (path === templatePath) return template;
+                throw new Error(`unexpected file read: ${path}`);
+            });
+
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+            expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+        });
+
+        it('should extract flags from a component class declaration with a quoted-key external template', () => {
+            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                filePath,
+                `
+                import { Component } from '@angular/core';
+                @Component({ selector: 'test', 'templateUrl': './${templateName}' })
+                class TestComponent {}
+                `
+            );
+            const template = `<p>${Random.String()}</p>`;
+            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
+                if (path === templatePath) return template;
+                throw new Error(`unexpected file read: ${path}`);
+            });
+
+            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
+                kind: 'external',
+                path: templatePath,
+                content: template,
+                offset: 0,
+            });
         });
     });
-
-    it('should extract flags from a component class declaration with a quoted-key external template', () => {
-        const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-            filePath,
-            `
-            import { Component } from '@angular/core';
-            @Component({ selector: 'test', 'templateUrl': './${templateName}' })
-            class TestComponent {}
-            `
-        );
-        const template = `<p>${Random.String()}</p>`;
-        (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-            if (path === templatePath) return template;
-            throw new Error(`unexpected file read: ${path}`);
-        });
-
-        extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-        expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-            kind: 'external',
-            path: templatePath,
-            content: template,
-            offset: 0,
-        });
-    });
-
-    //#endregion Process External Template
 });
