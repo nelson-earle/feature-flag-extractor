@@ -159,7 +159,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 3, col: 31, flagId },
+                { source: 'comp', filePath, row: 3, col: 36, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -178,7 +178,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 3, col: 31, flagId },
+                { source: 'comp', filePath, row: 3, col: 36, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -218,7 +218,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 4, col: 31, flagId },
+                { source: 'comp', filePath, row: 4, col: 36, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -238,7 +238,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 4, col: 31, flagId },
+                { source: 'comp', filePath, row: 4, col: 36, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -275,7 +275,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 4, col: 31, flagId },
+                { source: 'comp', filePath, row: 4, col: 36, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -296,7 +296,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 4, col: 52, flagId },
+                { source: 'comp', filePath, row: 4, col: 57, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -317,7 +317,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 4, col: 52, flagId },
+                { source: 'comp', filePath, row: 4, col: 57, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
@@ -338,7 +338,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 `
             );
             const expectedFlagReads: FlagRead[] = [
-                { source: 'comp', filePath, row: 5, col: 31, flagId },
+                { source: 'comp', filePath, row: 5, col: 41, flagId },
             ];
 
             const actual = extractFeatureFlagsFromTs(ctx, projectService, sourceFile);

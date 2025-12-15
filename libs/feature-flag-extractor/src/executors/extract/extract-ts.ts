@@ -27,14 +27,13 @@ export function extractFeatureFlagsFromTs(
 
             if (flag) {
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-                    node.getStart()
+                    node.argumentExpression.getStart()
                 );
-                // TODO: report position of element access key, not the element access itself
                 flagReads.push({
                     source: 'comp',
                     filePath,
                     row: line,
-                    col: character + 1,
+                    col: character,
                     flagId: flag,
                 });
             }
