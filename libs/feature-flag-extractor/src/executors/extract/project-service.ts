@@ -146,7 +146,6 @@ export class ProjectService {
         return typeChecker;
     }
 
-    // TODO: ignore `logLevel` if diagnostic category is `Error`
     private logDiagnostic = (d: ts.Diagnostic, logLevel: LogLevel | null = null): void => {
         if (typeof d.messageText === 'string') {
             this.logDiagnosticMessage(d.category, d.messageText, logLevel);
@@ -160,14 +159,14 @@ export class ProjectService {
         message: string,
         logLevel: LogLevel | null = null
     ): void => {
-        if (logLevel != null) {
+        if (category === ts.DiagnosticCategory.Error) {
+            this.logger.error(message);
+            return;
+        } else if (logLevel != null) {
             this.logger.msg(logLevel, message);
             return;
         }
         switch (category) {
-            case ts.DiagnosticCategory.Error:
-                this.logger.error(message);
-                break;
             case ts.DiagnosticCategory.Warning:
                 this.logger.warn(message);
                 break;
