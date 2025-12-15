@@ -205,7 +205,7 @@ function extractDynamicFlag(
     return null;
 }
 
-const TEMPLATE_LINE_RE = /^(\s*['"`]).*/s;
+const TEMPLATE_INITIALIZER_RE = /^\s*['"`]/s;
 
 function getTemplateFromComponentMetadata(
     ctx: Context,
@@ -216,10 +216,10 @@ function getTemplateFromComponentMetadata(
         if (ts.isPropertyAssignment(prop)) {
             if (isObjectKeyAndEquals(prop.name, 'template')) {
                 if (isStaticString(prop.initializer)) {
-                    const beforeTemplate = prop.initializer
-                        .getFullText()
-                        .replace(TEMPLATE_LINE_RE, '$1');
-                    const offset = prop.initializer.getFullStart() + beforeTemplate.length;
+                    const beforeInitializer =
+                        prop.initializer.getFullText().match(TEMPLATE_INITIALIZER_RE)?.[0].length ??
+                        0;
+                    const offset = prop.initializer.getFullStart() + beforeInitializer;
 
                     return {
                         kind: 'inline',
