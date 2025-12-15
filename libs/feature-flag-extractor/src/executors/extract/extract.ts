@@ -22,6 +22,7 @@ export function extractFeatureFlags(ctx: Context): FlagRead[] {
 
     for (const sourceFile of program.getSourceFiles()) {
         if (
+            sourceFile.isDeclarationFile ||
             !sourceFile.fileName.startsWith(ctx.projectRoot) ||
             sourceFile.fileName.includes('node_modules') ||
             sourceFile.fileName.endsWith('.d.ts') ||
