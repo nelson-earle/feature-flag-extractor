@@ -5,7 +5,7 @@ import { FlagRead } from './models/flag-read';
 import { Context } from './models/context';
 import { extractFeatureFlagsFromTemplate, TemplateMetadata } from './extract-angular';
 import { ProjectService } from './project-service';
-import { isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
+import { extractStringLiteralValue, isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
 import { SourceFilePositionManager } from './source-file-position-manager';
 
 export function extractFeatureFlagsFromTs(
@@ -23,9 +23,9 @@ export function extractFeatureFlagsFromTs(
 
     const visit = (node: ts.Node): void => {
         if (ts.isElementAccessExpression(node)) {
-            const flag = extractFlagFromElementAccess(ctx, typeChecker, node);
+            const flagId = extractFlagFromElementAccess(ctx, typeChecker, node);
 
-            if (flag) {
+            if (flagId) {
                 const { line, character } = sourceFile.getLineAndCharacterOfPosition(
                     node.argumentExpression.getStart()
                 );
@@ -34,13 +34,18 @@ export function extractFeatureFlagsFromTs(
                     filePath,
                     row: line,
                     col: character,
-                    flagId: flag,
+                    flagId,
                 });
             }
         } else if (ts.isClassDeclaration(node)) {
             const decoratorArg = getAngularComponentMetadataFromDecorators(node);
             if (decoratorArg) {
-                const template = getTemplateFromComponentMetadata(ctx, filePath, decoratorArg);
+                const template = getTemplateFromComponentMetadata(
+                    ctx,
+                    typeChecker,
+                    filePath,
+                    decoratorArg
+                );
                 if (template) {
                     ctx.logger.info(
                         ` found template: ${template.path} (offset=${template.offset})`
@@ -130,75 +135,51 @@ function extractFlagFromElementAccess(
 
     ctx.logger.debug(`>>> EXTRACT [src=COMP] flag read: \`\`\` ${node.getText()} \`\`\``);
 
-    // TODO: replace the below key evaluation with a visitor that does partial evaluation for
-    // strings (e.g. "StringPartialVisitor").
-
-    // Extract the flag ID
-    let flag: string | null = null;
-
-    if (ts.isStringLiteralLike(node.argumentExpression)) {
-        // Direct string literal like `flags['feature']`
-        flag = node.argumentExpression.text;
-    } else {
-        // Handle property reads like `flags[FEATURE_FLAG]`
-        const keyType = typeChecker.getTypeAtLocation(node.argumentExpression);
-        const keyTypeString = typeChecker.typeToString(keyType);
-
-        if (keyTypeString.startsWith('"')) {
-            // Key is a string literal
-            flag = keyTypeString.replace(/['"]/g, '');
-        } else if (
-            ts.isIdentifier(node.argumentExpression) ||
-            ts.isPropertyAccessExpression(node.argumentExpression)
-        ) {
-            // Try to find the literal value from symbol declaration
-            flag = extractDynamicFlag(typeChecker, node.argumentExpression);
-        } else {
-            // Neither a string literal nor an identifier/property read
-            ctx.logger.warn(
-                `element access of 'LDFlagSet' with key of unsupported type: \`\`\` ${keyTypeString} \`\`\``
-            );
-        }
-    }
-
-    if (!flag) {
+    const data = extractStringLiteralValue(typeChecker, node.argumentExpression);
+    if (!data) {
         ctx.logger.warn(
-            `unable to get flag ID from 'LDFlagSet' read: \`\`\` ${node.getText()} \`\`\``
+            `unable to extract flag ID from element access of 'LDFlagSet': \`\`\` ${node.argumentExpression.getText()} \`\`\``
         );
+        return null;
     }
 
-    return flag;
+    return data.value;
 }
 
-/**
- * Extract the flag ID from the value of an identifier or property.
- * @param expression The identifier (e.g. `flagName`) or property (e.g. `this.flagName`).
- * @returns The flag ID or null if the node doesn't match our criteria.
- */
-function extractDynamicFlag(
+function getTemplateFromComponentMetadata(
+    ctx: Context,
     typeChecker: ts.TypeChecker,
-    expression: ts.Identifier | ts.PropertyAccessExpression
-): string | null {
-    const symbol = typeChecker.getSymbolAtLocation(expression);
-
-    if (symbol && symbol.declarations && symbol.declarations.length > 0) {
-        const decl = symbol.declarations[0];
-        // Check if it's a variable declaration with initializer
-        // VariableDeclaration:
-        //     const name = ...;
-        // PropertyAssignment:
-        //     { name: ... }
-        // PropertyDeclaration:
-        //     class { name = ...; }
-        if (
-            (ts.isVariableDeclaration(decl) ||
-                ts.isPropertyAssignment(decl) ||
-                ts.isPropertyDeclaration(decl)) &&
-            decl.initializer
+    filePath: string,
+    metadata: ts.ObjectLiteralExpression
+): TemplateMetadata | null {
+    for (const prop of metadata.properties) {
+        if (ts.isPropertyAssignment(prop) && isObjectKeyAndEquals(prop.name, 'template')) {
+            return getInlineTemplateFromComponentMetadata(
+                ctx,
+                typeChecker,
+                filePath,
+                prop.initializer
+            );
+        } else if (
+            ts.isShorthandPropertyAssignment(prop) &&
+            isObjectKeyAndEquals(prop.name, 'template')
         ) {
-            if (ts.isStringLiteral(decl.initializer)) {
-                return decl.initializer.text;
-            }
+            return getInlineTemplateFromComponentMetadata(ctx, typeChecker, filePath, prop);
+        } else if (
+            ts.isPropertyAssignment(prop) &&
+            isObjectKeyAndEquals(prop.name, 'templateUrl')
+        ) {
+            return getExternalTemplateFromComponentMetadata(
+                ctx,
+                typeChecker,
+                filePath,
+                prop.initializer
+            );
+        } else if (
+            ts.isShorthandPropertyAssignment(prop) &&
+            isObjectKeyAndEquals(prop.name, 'templateUrl')
+        ) {
+            return getExternalTemplateFromComponentMetadata(ctx, typeChecker, filePath, prop.name);
         }
     }
 
@@ -207,81 +188,66 @@ function extractDynamicFlag(
 
 const TEMPLATE_INITIALIZER_RE = /^\s*['"`]/s;
 
-function getTemplateFromComponentMetadata(
+function getInlineTemplateFromComponentMetadata(
     ctx: Context,
+    typeChecker: ts.TypeChecker,
     filePath: string,
-    metadata: ts.ObjectLiteralExpression
+    node: ts.Node
 ): TemplateMetadata | null {
-    for (const prop of metadata.properties) {
-        if (ts.isPropertyAssignment(prop)) {
-            if (isObjectKeyAndEquals(prop.name, 'template')) {
-                if (ts.isStringLiteralLike(prop.initializer)) {
-                    const beforeInitializer =
-                        prop.initializer.getFullText().match(TEMPLATE_INITIALIZER_RE)?.[0].length ??
-                        0;
-                    const offset = prop.initializer.getFullStart() + beforeInitializer;
+    const data = extractStringLiteralValue(typeChecker, node);
 
-                    return {
-                        kind: 'inline',
-                        path: filePath,
-                        content: prop.initializer.text,
-                        offset,
-                    };
-                } else {
-                    ctx.logger.warn(
-                        `inline template is not a string literal in component: ${filePath}`
-                    );
-                    return null;
-                }
-                // TODO: handle initializer that is an identifier of a constant.
-            } else if (isObjectKeyAndEquals(prop.name, 'templateUrl')) {
-                if (!ts.isStringLiteralLike(prop.initializer)) {
-                    ctx.logger.warn(
-                        `template URL is not a string literal in component: ${filePath}`
-                    );
-                    return null;
-                }
-                // TODO: handle initializer that is an identifier of a constant.
+    if (data) {
+        const beforeInitializer =
+            data.node.getFullText().match(TEMPLATE_INITIALIZER_RE)?.[0].length ?? 0;
+        const offset = data.node.getFullStart() + beforeInitializer;
 
-                const templateUrl = prop.initializer.text;
+        return {
+            kind: 'inline',
+            path: filePath,
+            content: data.value,
+            offset,
+        };
+    } else {
+        ctx.logger.warn(`inline template is not a string literal in component: ${filePath}`);
+        return null;
+    }
+}
 
-                try {
-                    // Resolve the template path relative to the component
-                    const componentDir = path.dirname(filePath);
-                    const templatePath = path.resolve(componentDir, templateUrl);
-
-                    try {
-                        const content = fs.readFileSync(templatePath, 'utf-8');
-                        return {
-                            kind: 'external',
-                            path: templatePath,
-                            content,
-                            offset: 0,
-                        };
-                    } catch (err) {
-                        if (
-                            err &&
-                            typeof err === 'object' &&
-                            'code' in err &&
-                            err.code === 'ENOENT'
-                        ) {
-                            ctx.logger.warn(
-                                `template URL file not found for component: ${filePath}`
-                            );
-                            return null;
-                        } else {
-                            throw err;
-                        }
-                    }
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : `${error}`;
-                    throw new Error(
-                        `Failed to read template file for component: ${filePath}\n\n${message}`
-                    );
-                }
-            }
-        }
+function getExternalTemplateFromComponentMetadata(
+    ctx: Context,
+    typeChecker: ts.TypeChecker,
+    filePath: string,
+    node: ts.Node
+): TemplateMetadata | null {
+    const data = extractStringLiteralValue(typeChecker, node);
+    if (!data) {
+        ctx.logger.warn(`template URL is not a string literal in component: ${filePath}`);
+        return null;
     }
 
-    return null;
+    try {
+        // Resolve the template path relative to the component
+        const componentDir = path.dirname(filePath);
+        const templatePath = path.resolve(componentDir, data.value);
+
+        try {
+            const content = fs.readFileSync(templatePath, 'utf-8');
+            return {
+                kind: 'external',
+                path: templatePath,
+                content,
+                offset: 0,
+            };
+        } catch (err) {
+            if (err && typeof err === 'object' && 'code' in err && err.code === 'ENOENT') {
+                ctx.logger.warn(`template URL file not found for component: ${filePath}`);
+                return null;
+            } else {
+                throw err;
+            }
+        }
+    } catch (error) {
+        const message = error instanceof Error ? error.message : `${error}`;
+        throw new Error(`Failed to read template file for component: ${filePath}\n\n${message}`);
+    }
 }

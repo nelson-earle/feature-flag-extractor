@@ -348,30 +348,45 @@ describe('extractFeatureFlagsFromTs', () => {
     });
 
     describe('Process Inline Template', () => {
-        it('should extract flags from a component class declaration with an inline template', () => {
-            const template = '<p></p>';
-            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-                filePath,
-                `
-                import { Component } from '@angular/core';
-                @Component({ selector: 'test', template: '${template}' })
-                class TestComponent {}
-                `
-            );
+        const template = '<p></p>';
 
-            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+        [
+            { literal: `'${template}'`, process: true },
+            { literal: `\`${template}\``, process: true },
+            { literal: `\`\${x}${template}\``, process: false },
+        ].forEach(({ literal, process }) => {
+            it(`should process the literal component template | ${literal}`, () => {
+                const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                    filePath,
+                    `
+                    import { Component } from '@angular/core';
+                    const x: string = '';
+                    @Component({ selector: 'test', template: ${literal} })
+                    class TestComponent {}
+                    `
+                );
 
-            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-                kind: 'inline',
-                path: filePath,
-                content: template,
-                offset: 118,
+                extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+                if (process) {
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
+                        ctx,
+                        projectService,
+                        {
+                            kind: 'inline',
+                            path: filePath,
+                            content: template,
+                            offset: 168,
+                        }
+                    );
+                } else {
+                    expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+                }
             });
         });
 
-        it('should extract flags from a component class declaration with a quoted-key inline template', () => {
-            const template = '<p></p>';
+        it('should process the quoted-key literal component template', () => {
             const { ctx, projectService, sourceFile } = configureSimpleTestHost(
                 filePath,
                 `
@@ -391,125 +406,136 @@ describe('extractFeatureFlagsFromTs', () => {
                 offset: 120,
             });
         });
+
+        [
+            { decl: `const TMPL = '${template}'`, offset: 14, process: true },
+            { decl: `const TMPL = \`${template}\``, offset: 14, process: true },
+            { decl: `const TMPL = \`\${x}${template}\``, offset: 14, process: false },
+            { decl: `const TMPL: string = '${template}'`, offset: 22, process: true },
+            { decl: `const TMPL: string = \`${template}\``, offset: 22, process: true },
+            { decl: `const TMPL: string = \`\${x}${template}\``, offset: 22, process: false },
+        ].forEach(({ decl, offset, process }) => {
+            it(`should process the string identifier component template | ${decl}`, () => {
+                const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                    filePath,
+                    `
+                    import { Component } from '@angular/core';
+                    const x: string = '';
+                    ${decl};
+                    @Component({ selector: 'test', template: TMPL })
+                    class TestComponent {}
+                    `
+                );
+
+                extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+                if (process) {
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
+                        ctx,
+                        projectService,
+                        {
+                            kind: 'inline',
+                            path: filePath,
+                            content: template,
+                            offset: /* offset of `decl` */ 126 + offset,
+                        }
+                    );
+                } else {
+                    expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+                }
+            });
+        });
+
+        [
+            { decl: `const template = '${template}'`, offset: 18, process: true },
+            { decl: `const template = \`${template}\``, offset: 18, process: true },
+            { decl: `const template = \`\${x}${template}\``, offset: 18, process: false },
+            { decl: `const template: string = '${template}'`, offset: 26, process: true },
+            { decl: `const template: string = \`${template}\``, offset: 26, process: true },
+            { decl: `const template: string = \`\${x}${template}\``, offset: 26, process: false },
+        ].forEach(({ decl, offset, process }) => {
+            it(`should process the shorthand string identifier component template | ${decl}`, () => {
+                const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                    filePath,
+                    `
+                    import { Component } from '@angular/core';
+                    const x: string = '';
+                    ${decl};
+                    @Component({ selector: 'test', template })
+                    class TestComponent {}
+                    `
+                );
+
+                extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+                if (process) {
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
+                        ctx,
+                        projectService,
+                        {
+                            kind: 'inline',
+                            path: filePath,
+                            content: template,
+                            offset: /* offset of `decl` */ 126 + offset,
+                        }
+                    );
+                } else {
+                    expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+                }
+            });
+        });
     });
 
     describe('Process External Template', () => {
-        it('should extract flags from a component class declaration with a string literal template URL', () => {
-            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-                filePath,
-                `
-                import { Component } from '@angular/core';
-                @Component({ selector: 'test', templateUrl: './${templateName}' })
-                class TestComponent {}
-                `
-            );
-            const template = `<p>${Random.String()}</p>`;
+        let template = '';
+
+        beforeEach(() => {
             (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
                 if (path === templatePath) return template;
                 throw new Error(`unexpected file read: ${path}`);
             });
+        });
 
-            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+        [
+            { literalUrl: `'${templateName}'`, process: true },
+            { literalUrl: `\`${templateName}\``, process: true },
+            { literalUrl: `\`\${x}${templateName}\``, process: false },
+        ].forEach(({ literalUrl, process }) => {
+            it(`should process the component template URL | ${literalUrl}`, () => {
+                const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                    filePath,
+                    `
+                    import { Component } from '@angular/core';
+                    const x: string = '';
+                    @Component({ selector: 'test', templateUrl: ${literalUrl} })
+                    class TestComponent {}
+                    `
+                );
+                template = `<p>${Random.String()}</p>`;
 
-            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-                kind: 'external',
-                path: templatePath,
-                content: template,
-                offset: 0,
+                extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+                if (process) {
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
+                        ctx,
+                        projectService,
+                        {
+                            kind: 'external',
+                            path: templatePath,
+                            content: template,
+                            offset: 0,
+                        }
+                    );
+                } else {
+                    expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+                }
             });
         });
 
-        it('should extract flags from a component class declaration with a no-sub template literal template URL', () => {
-            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-                filePath,
-                `
-                import { Component } from '@angular/core';
-                @Component({ selector: 'test', templateUrl: \`./${templateName}\` })
-                class TestComponent {}
-                `
-            );
-            const template = `<p>${Random.String()}</p>`;
-            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-                if (path === templatePath) return template;
-                throw new Error(`unexpected file read: ${path}`);
-            });
-
-            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
-            expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(ctx, projectService, {
-                kind: 'external',
-                path: templatePath,
-                content: template,
-                offset: 0,
-            });
-        });
-
-        it('should not extract flags from a component class declaration with a sub template literal template URL', () => {
-            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-                filePath,
-                `
-                import { Component } from '@angular/core';
-                const indirectTemplateUrl: string = '${templateName}';
-                @Component({ selector: 'test', templateUrl: \`\${indirectTemplateUrl}\` })
-                class TestComponent {}
-                `
-            );
-            const template = `<p>${Random.String()}</p>`;
-            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-                if (path === templatePath) return template;
-                throw new Error(`unexpected file read: ${path}`);
-            });
-
-            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-            expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
-        });
-
-        it('should not extract flags from a component class declaration with a literal-type identifier template URL', () => {
-            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-                filePath,
-                `
-                import { Component } from '@angular/core';
-                const templateUrl = '${templateName}';
-                @Component({ selector: 'test', templateUrl })
-                class TestComponent {}
-                `
-            );
-            const template = `<p>${Random.String()}</p>`;
-            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-                if (path === templatePath) return template;
-                throw new Error(`unexpected file read: ${path}`);
-            });
-
-            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-            expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
-        });
-
-        it('should not extract flags from a component class declaration with a string-type identifier template URL', () => {
-            const { ctx, projectService, sourceFile } = configureSimpleTestHost(
-                filePath,
-                `
-                import { Component } from '@angular/core';
-                const templateUrl: string = '${templateName}';
-                @Component({ selector: 'test', templateUrl })
-                class TestComponent {}
-                `
-            );
-            const template = `<p>${Random.String()}</p>`;
-            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-                if (path === templatePath) return template;
-                throw new Error(`unexpected file read: ${path}`);
-            });
-
-            extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
-
-            expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
-        });
-
-        it('should extract flags from a component class declaration with a quoted-key external template', () => {
+        it('should process the quoted-key template URL', () => {
             const { ctx, projectService, sourceFile } = configureSimpleTestHost(
                 filePath,
                 `
@@ -518,11 +544,7 @@ describe('extractFeatureFlagsFromTs', () => {
                 class TestComponent {}
                 `
             );
-            const template = `<p>${Random.String()}</p>`;
-            (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-                if (path === templatePath) return template;
-                throw new Error(`unexpected file read: ${path}`);
-            });
+            template = `<p>${Random.String()}</p>`;
 
             extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
 
@@ -532,6 +554,92 @@ describe('extractFeatureFlagsFromTs', () => {
                 path: templatePath,
                 content: template,
                 offset: 0,
+            });
+        });
+
+        [
+            { decl: `const URL = '${templateName}'`, offset: 13, process: true },
+            { decl: `const URL = \`${templateName}\``, offset: 13, process: true },
+            { decl: `const URL = \`\${x}${templateName}\``, offset: 13, process: false },
+            { decl: `const URL: string = '${templateName}'`, offset: 21, process: true },
+            { decl: `const URL: string = \`${templateName}\``, offset: 21, process: true },
+            { decl: `const URL: string = \`\${x}${templateName}\``, offset: 21, process: false },
+        ].forEach(({ decl, process }) => {
+            it(`should process the component template URL | ${decl}`, () => {
+                const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                    filePath,
+                    `
+                    import { Component } from '@angular/core';
+                    const x: string = '';
+                    ${decl};
+                    @Component({ selector: 'test', templateUrl: URL })
+                    class TestComponent {}
+                    `
+                );
+                template = `<p>${Random.String()}</p>`;
+
+                extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+                if (process) {
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
+                        ctx,
+                        projectService,
+                        {
+                            kind: 'external',
+                            path: templatePath,
+                            content: template,
+                            offset: 0,
+                        }
+                    );
+                } else {
+                    expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+                }
+            });
+        });
+
+        [
+            { decl: `const templateUrl = '${templateName}'`, offset: 21, process: true },
+            { decl: `const templateUrl = \`${templateName}\``, offset: 21, process: true },
+            { decl: `const templateUrl = \`\${x}${templateName}\``, offset: 21, process: false },
+            { decl: `const templateUrl: string = '${templateName}'`, offset: 29, process: true },
+            { decl: `const templateUrl: string = \`${templateName}\``, offset: 29, process: true },
+            {
+                decl: `const templateUrl: string = \`\${x}${templateName}\``,
+                offset: 29,
+                process: false,
+            },
+        ].forEach(({ decl, process }) => {
+            it(`should process the component template URL | ${decl}`, () => {
+                const { ctx, projectService, sourceFile } = configureSimpleTestHost(
+                    filePath,
+                    `
+                    import { Component } from '@angular/core';
+                    const x: string = '';
+                    ${decl};
+                    @Component({ selector: 'test', templateUrl })
+                    class TestComponent {}
+                    `
+                );
+                template = `<p>${Random.String()}</p>`;
+
+                extractFeatureFlagsFromTs(ctx, projectService, sourceFile);
+
+                if (process) {
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledTimes(1);
+                    expect(extractFeatureFlagsFromTemplate).toHaveBeenCalledWith(
+                        ctx,
+                        projectService,
+                        {
+                            kind: 'external',
+                            path: templatePath,
+                            content: template,
+                            offset: 0,
+                        }
+                    );
+                } else {
+                    expect(extractFeatureFlagsFromTemplate).not.toHaveBeenCalled();
+                }
             });
         });
     });
