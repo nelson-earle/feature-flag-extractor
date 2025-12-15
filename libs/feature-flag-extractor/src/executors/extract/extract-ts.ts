@@ -5,7 +5,7 @@ import { FlagRead } from './models/flag-read';
 import { Context } from './models/context';
 import { extractFeatureFlagsFromTemplate, TemplateMetadata } from './extract-angular';
 import { ProjectService } from './project-service';
-import { isStaticString, isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
+import { isObjectKeyAndEquals, typeContainsSymbol } from './ts-util';
 import { SourceFilePositionManager } from './source-file-position-manager';
 
 export function extractFeatureFlagsFromTs(
@@ -136,7 +136,7 @@ function extractFlagFromElementAccess(
     // Extract the flag ID
     let flag: string | null = null;
 
-    if (isStaticString(node.argumentExpression)) {
+    if (ts.isStringLiteralLike(node.argumentExpression)) {
         // Direct string literal like `flags['feature']`
         flag = node.argumentExpression.text;
     } else {
@@ -215,7 +215,7 @@ function getTemplateFromComponentMetadata(
     for (const prop of metadata.properties) {
         if (ts.isPropertyAssignment(prop)) {
             if (isObjectKeyAndEquals(prop.name, 'template')) {
-                if (isStaticString(prop.initializer)) {
+                if (ts.isStringLiteralLike(prop.initializer)) {
                     const beforeInitializer =
                         prop.initializer.getFullText().match(TEMPLATE_INITIALIZER_RE)?.[0].length ??
                         0;
@@ -235,7 +235,7 @@ function getTemplateFromComponentMetadata(
                 }
                 // TODO: handle initializer that is an identifier of a constant.
             } else if (isObjectKeyAndEquals(prop.name, 'templateUrl')) {
-                if (!isStaticString(prop.initializer)) {
+                if (!ts.isStringLiteralLike(prop.initializer)) {
                     ctx.logger.warn(
                         `template URL is not a string literal in component: ${filePath}`
                     );
