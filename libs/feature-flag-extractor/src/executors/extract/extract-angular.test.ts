@@ -63,7 +63,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
         const flagId = Random.String();
         const template = `@switch (flags['${flagId}']) {}`;
         const expectedFlagReads: TemplateFlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, offset: 15, flagId },
+            {
+                source: 'tmpl',
+                filePath: templatePath,
+                offset: 15,
+                length: flagId.length + 2,
+                flagId,
+            },
         ];
 
         const actual = extract(template);
@@ -75,7 +81,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
         const flagId = Random.String();
         const template = `@switch (x) { @case (flags['${flagId}']) {} }`;
         const expectedFlagReads: TemplateFlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, offset: 27, flagId },
+            {
+                source: 'tmpl',
+                filePath: templatePath,
+                offset: 27,
+                length: flagId.length + 2,
+                flagId,
+            },
         ];
 
         const actual = extract(template);
@@ -96,12 +108,14 @@ describe('extractFeatureFlagsFromTemplate', () => {
                 source: 'tmpl',
                 filePath: templatePath,
                 offset: 1 + 23,
+                length: flagId1.length + 2,
                 flagId: flagId1,
             },
             {
                 source: 'tmpl',
                 filePath: templatePath,
                 offset: 1 + 23 + 1 + flagId1.length + 6 + 1 + 28,
+                length: flagId2.length + 2,
                 flagId: flagId2,
             },
         ];
@@ -115,7 +129,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
         const flagId = Random.String();
         const template = `<p [class]="flags['${flagId}']"></p>`;
         const expectedFlagReads: TemplateFlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, offset: 18, flagId },
+            {
+                source: 'tmpl',
+                filePath: templatePath,
+                offset: 18,
+                length: flagId.length + 2,
+                flagId,
+            },
         ];
 
         const actual = extract(template);
@@ -127,7 +147,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
         const flagId = Random.String();
         const template = `<div (click)="onClick(flags['${flagId}'])"></div>`;
         const expectedFlagReads: TemplateFlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, offset: 28, flagId },
+            {
+                source: 'tmpl',
+                filePath: templatePath,
+                offset: 28,
+                length: flagId.length + 2,
+                flagId,
+            },
         ];
 
         const actual = extract(template);
@@ -139,7 +165,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
         const flagId = Random.String();
         const template = `{{ flags['${flagId}'] }}`;
         const expectedFlagReads: TemplateFlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, offset: 9, flagId },
+            {
+                source: 'tmpl',
+                filePath: templatePath,
+                offset: 9,
+                length: flagId.length + 2,
+                flagId,
+            },
         ];
 
         const actual = extract(template);
@@ -151,7 +183,13 @@ describe('extractFeatureFlagsFromTemplate', () => {
         const flagId = Random.String();
         const template = `@let x = flags['${flagId}'];`;
         const expectedFlagReads: TemplateFlagRead[] = [
-            { source: 'tmpl', filePath: templatePath, offset: 15, flagId },
+            {
+                source: 'tmpl',
+                filePath: templatePath,
+                offset: 15,
+                length: flagId.length + 2,
+                flagId,
+            },
         ];
 
         const actual = extract(template);

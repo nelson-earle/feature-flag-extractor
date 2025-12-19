@@ -134,8 +134,11 @@ async function outputHumanReadable(
                 for (const read of readList) {
                     const filePath = path.relative(root, read.filePath);
                     const line = read.row + 1;
-                    const char = read.col + 1;
-                    await stream.write(`  ${filePath}:${line}:${char} [${read.source}]\n`);
+                    const charStart = read.colStart + 1;
+                    const charEnd = read.colEnd + 1;
+                    await stream.write(
+                        `  ${filePath}:${line}:${charStart}-${charEnd} [${read.source}]\n`
+                    );
                 }
             }
         }
@@ -156,7 +159,7 @@ function sortFlagReads(a: FlagRead, b: FlagRead): number {
     if (byPath !== 0) return byPath;
     const byRow = a.row - b.row; // ascending
     if (byRow !== 0) return byRow;
-    const byCol = a.col - b.col; // ascending
+    const byCol = a.colStart - b.colStart; // ascending
     if (byCol !== 0) return byCol;
     return 0;
 }
@@ -165,7 +168,8 @@ function outputJson(options: Options, flagReadsById: Map<string, FlagRead[]>): E
     interface OutputEntry {
         path: string;
         line: number;
-        column: number;
+        columnStart: number;
+        columnEnd: number;
     }
     const output: Record<string, OutputEntry[]> = {};
 
@@ -173,7 +177,8 @@ function outputJson(options: Options, flagReadsById: Map<string, FlagRead[]>): E
         output[id] = readList.map(r => ({
             path: r.filePath,
             line: r.row + 1,
-            column: r.col + 1,
+            columnStart: r.colStart + 1,
+            columnEnd: r.colEnd,
         }));
     }
 

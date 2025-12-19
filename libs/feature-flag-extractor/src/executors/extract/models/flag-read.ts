@@ -6,7 +6,8 @@ export interface FlagRead {
     source: FlagReadSource;
     filePath: string;
     row: number;
-    col: number;
+    colStart: number;
+    colEnd: number;
     flagId: string;
 }
 

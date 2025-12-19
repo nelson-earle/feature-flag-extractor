@@ -26,14 +26,18 @@ export function extractFeatureFlagsFromTs(
             const flagId = extractFlagFromElementAccess(ctx, typeChecker, node);
 
             if (flagId) {
-                const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+                const { line, character: colStart } = sourceFile.getLineAndCharacterOfPosition(
                     node.argumentExpression.getStart()
+                );
+                const { character: colEnd } = sourceFile.getLineAndCharacterOfPosition(
+                    node.argumentExpression.getEnd()
                 );
                 flagReads.push({
                     source: 'comp',
                     filePath,
                     row: line,
-                    col: character,
+                    colStart,
+                    colEnd,
                     flagId,
                 });
             }
@@ -66,16 +70,17 @@ export function extractFeatureFlagsFromTs(
                     for (const tfr of templateFlagReads) {
                         const templateLine = positionManager.getLineAtOffset(tfr.offset);
                         let row = 0;
-                        let col = tfr.offset;
+                        let colStart = tfr.offset;
                         if (templateLine.line) {
                             row = templateLine.row;
-                            col = templateLine.col;
+                            colStart = templateLine.col;
                         }
                         flagReads.push({
                             source: tfr.source,
                             filePath: tfr.filePath,
                             row,
-                            col,
+                            colStart,
+                            colEnd: colStart + tfr.length,
                             flagId: tfr.flagId,
                         });
                     }

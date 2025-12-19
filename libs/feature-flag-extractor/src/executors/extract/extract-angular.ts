@@ -22,6 +22,7 @@ export interface TemplateFlagRead {
     source: FlagReadSource;
     filePath: string;
     offset: number;
+    length: number;
     flagId: string;
 }
 
@@ -72,6 +73,7 @@ export function extractFeatureFlagsFromTemplate(
                 source: 'tmpl',
                 filePath: template.path,
                 offset: template.offset + keyedRead.keySpan.start,
+                length: keyedRead.keySpan.end - keyedRead.keySpan.start,
                 flagId: keyedRead.flagId,
             });
         }
