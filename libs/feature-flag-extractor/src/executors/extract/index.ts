@@ -3,7 +3,7 @@ import '../../polyfills';
 import type { PromiseExecutor, ExecutorContext } from '@nx/devkit';
 import type { Options } from './schema';
 import { extractFeatureFlags } from './extract';
-import { optionsSourceToFlagReadSource, FlagRead } from './models/flag-read';
+import { flagReadSourceDisplay, optionsSourceToFlagReadSource, FlagRead } from './models/flag-read';
 import { Logger, optionLogLevelToLogLevel } from './logger';
 import { Context } from './models/context';
 import { ExecutorResult, error, EXECUTOR_RESULT_SUCCESS } from './executor-util';
@@ -136,8 +136,9 @@ async function outputHumanReadable(
                     const line = read.row + 1;
                     const charStart = read.colStart + 1;
                     const charEnd = read.colEnd + 1;
+                    const sourceTag = options.verbose ? ` [${read.source}]` : '';
                     await stream.write(
-                        `  ${filePath}:${line}:${charStart}-${charEnd} [${read.source}]\n`
+                        `  ${filePath}:${line}:${charStart}-${charEnd}${sourceTag}\n`
                     );
                 }
             }
@@ -167,6 +168,7 @@ function sortFlagReads(a: FlagRead, b: FlagRead): number {
 function outputJson(options: Options, flagReadsById: Map<string, FlagRead[]>): ExecutorResult {
     interface OutputEntry {
         path: string;
+        source: string;
         line: number;
         columnStart: number;
         columnEnd: number;
@@ -176,6 +178,7 @@ function outputJson(options: Options, flagReadsById: Map<string, FlagRead[]>): E
     for (const [id, readList] of flagReadsById.entries()) {
         output[id] = readList.map(r => ({
             path: r.filePath,
+            source: flagReadSourceDisplay(r.source),
             line: r.row + 1,
             columnStart: r.colStart + 1,
             columnEnd: r.colEnd,

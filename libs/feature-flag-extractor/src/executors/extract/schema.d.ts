@@ -3,6 +3,7 @@ export interface Options {
     help?: boolean;
     logLevel?: OptionsLogLevel;
     locations?: boolean;
+    verbose?: boolean;
     output?: string;
     json?: boolean;
     filterFiles?: string;

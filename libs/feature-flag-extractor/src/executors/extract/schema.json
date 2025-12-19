@@ -23,6 +23,10 @@
             "type": "boolean",
             "description": "Whether to print the locations of uses of each feature flag"
         },
+        "verbose": {
+            "type": "boolean",
+            "description": "Whether to output verbose flag information"
+        },
         "output": {
             "type": "string",
             "description": "Write the output to the given path"

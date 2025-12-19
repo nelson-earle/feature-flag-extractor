@@ -21,3 +21,12 @@ export function optionsSourceToFlagReadSource(source?: OptionsFilterSource): Fla
             return null;
     }
 }
+
+export function flagReadSourceDisplay(source: FlagReadSource): string {
+    switch (source) {
+        case 'comp':
+            return 'component';
+        case 'tmpl':
+            return 'template';
+    }
+}
